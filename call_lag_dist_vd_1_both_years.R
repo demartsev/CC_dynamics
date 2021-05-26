@@ -45,7 +45,7 @@ colnames(scan_addition) <- c("action", "scan_ID", "aidio_id", "Scan_t", "audio_t
 HM2 <- c(20190712: 20190719)
 
 #setup of analysis variables
-dist_thresh <- 20 #distance to neighbor
+dist_thresh <- 10 #distance to neighbor
 
 sequence_lenght <- 3 #length of call sequence
 seq_start = 10 #silence time before initiating a sequence
@@ -510,7 +510,7 @@ tmp_pairs <- tmp_pairs[-(which(tmp_pairs$lag < 0.1 & tmp_pairs$caller_match ==T)
 #tmp_pairs <- tmp_pairs[-(which(tmp_pairs$lag < 0.1)) , ] #remove all quick replies
 
 tmp_pairs <- tmp_pairs[which(tmp_pairs$lag <= seq.reply), ] #remove slow replies
-tmp_pairs <- tmp_pairs [which(tmp_pairs$c_dist < 20), ] #filter by distance here
+tmp_pairs <- tmp_pairs [which(tmp_pairs$c_dist < dist_thresh), ] #filter by distance here
 #tmp_pairs$rand_lag <- sample(tmp_pairs$lag, nrow(tmp_pairs), replace = F)
 
 
@@ -548,24 +548,26 @@ ggplot(data = tmp_pairs, aes(x = pair, y = lag, fill = caller_match)) + geom_box
 
 test <- all_calls_seq[which(!is.na(all_calls_seq$c_dist)), ] #only get pairs with distance
 test <- test[which(test$self != test$ind), ] #only get caller exchange
-test <- test[which(test$c_dist < 20), ] #limit distance to 20m
+test <- test[which(test$c_dist < dist_thresh), ] #limit reply distance 
 
 test <- test[which(test$lag < seq.reply), ] #limit time lag 
 
 
 
-test <- test[which(test$pair %in% call_pairs), ] #select  call type pairs
+#test <- test[which(test$pair %in% call_pairs), ] #select  call type pairs
 sample_sizes <- data.frame(table(test$pair))
 
 #run plots and models for call types with reasonable sample sizes only
 call_pairs <- sample_sizes[which(sample_sizes$Freq > pair_sample_size), 1]
-tmp_pairs <- tmp_pairs[which(tmp_pairs$pair %in% call_pairs), ] #select  call type pairs of interest
+tmp_pairs <- test[which(test$pair %in% call_pairs), ] #select  call type pairs of interest
+
+
 par(mfrow=c(1,1))
 
 
 colors <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#009999")
 
-plot(1, type="n", xlab=bquote(bold("Distance(m)")), ylab=bquote(bold("Response time (sec)")), xlim=c(0, 20), ylim=c(0, 2.5), main = "Response time by distance", bty = "l")
+plot(1, type="n", xlab=bquote(bold("Distance(m)")), ylab=bquote(bold("Response time (sec)")), xlim=c(0, dist_thresh), ylim=c(0, 2.5), main = "Response time by distance", bty = "l")
 legend("topleft", 
        legend = call_pairs, 
        col = adjustcolor(colors, alpha.f=0.4), 
@@ -580,7 +582,7 @@ legend("topleft",
 for (call in call_pairs)
 {
   clr <- colors[which(call_pairs == call)]
-  test_plot <- test[which(test$pair == call), ]
+  test_plot <-tmp_pairs[which(tmp_pairs$pair == call), ]
   
   library(lme4)
   
@@ -608,9 +610,31 @@ for (call in call_pairs)
 
 ##plotting response distance per call pair
 
-par(mfrow=c(3,2))
+par(mfrow=c(2,2))
 
 for (one_pair in call_pairs) {
-  hist(test[which(test$pair == one_pair) ,"c_dist"], col = adjustcolor("#000000", alpha.f=0.4), main = paste(one_pair, "response distance", sep = ""), xlab = "meters")
+  hist(tmp_pairs[which(tmp_pairs$pair == one_pair) ,"c_dist"], col = adjustcolor("#000000", alpha.f=0.4), main = paste(one_pair, "response distance", sep = ""), xlab = "meters")
 }
 
+
+#____________________________________________________________________________________
+#plotting models for CC and SN
+
+call_pairs <- c("cc cc", "sn sn")
+
+tmp_pairs <- tmp_pairs[which(tmp_pairs$pair %in% call_pairs), ] #select  only CC and SN
+
+
+library(sjPlot)
+library(sjmisc)
+library(lme4)
+library(jtools)
+library(ggstance)
+
+m3.lmer <- lmer(lag ~ c_dist + pair + c_dist*pair + (1|ind), data = tmp_pairs)
+summary(m3.lmer) 
+
+sjPlot::plot_model(m3.lmer, type = "int")
+
+
+summ(m3.lmer)
