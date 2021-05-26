@@ -15,13 +15,24 @@ library(stringr)
 
 # Analyses of Meerkat call pair dynamics
 
+
+### this script arranges all recorded meerkat calls into a reasonable filtered state.
+### the call names are recoded into a standard format and collapsed into main categories
+### the skip times are deleted across the whole day and non-focal and no-call enteries are filtered out
+### call positions are updated from the movement files and scan positions are added with buffer times before and after
+### call pair distances and time lags are calculated
+### sequence initiations and sequence continuation cutoffs are set
+### self replies and caller exchange replies are marked
+### the data re-arrangement section end in L360
+### after the data is fully arranged a series of plots are generated
+
 # set working directory
 setwd("C:/Users/vdemartsev/My Cloud/Git_projects/CC_dynamics")
 
 #directory with scans GPS data 
 scans_dir <- ("V:/meerkat/working/processed/scans")
 scan_buffer <- 15 #before and after buffer time
-scan_files <- list.files(scans_dir)
+scan_files <- list.files(scans_dir, pattern = ".csv")
 
 #making object to control for scans based GPS point addition
 scan_addition <- data.frame(matrix(ncol = 8, nrow = 0), stringsAsFactors = F)
@@ -481,9 +492,9 @@ for (x in 1:length(call_pairs_list))
   
 }
 
-grid.arrange(p[[1]], p[[2]],p[[3]], p[[4]] ,  nrow = 2, top = paste("Delta call_type transition matrix"))
+grid.arrange(p[[1]], p[[2]],p[[3]], p[[4]] ,  nrow = 2, top = paste("Delta call_type transition matrix (20m cutoff)"))
 
-
+#_________________________________________________________________________________________________________________________
 
 #### calculate self reply time vs caller exchange reply time ####
 
@@ -495,50 +506,13 @@ tmp_pairs <- all_calls_seq[which(!is.na(all_calls_seq$ini) & !is.na(all_calls_se
 tmp_pairs$caller_match <-ifelse( tmp_pairs$ind == tmp_pairs$self, T, F) 
 
 
-
-
-
 tmp_pairs <- tmp_pairs[-(which(tmp_pairs$lag < 0.1 & tmp_pairs$caller_match ==T)) , ] #remove quick self replies
+#tmp_pairs <- tmp_pairs[-(which(tmp_pairs$lag < 0.1)) , ] #remove all quick replies
+
 tmp_pairs <- tmp_pairs[which(tmp_pairs$lag <= seq.reply), ] #remove slow replies
 tmp_pairs <- tmp_pairs [which(tmp_pairs$c_dist < 20), ] #filter by distance here
 #tmp_pairs$rand_lag <- sample(tmp_pairs$lag, nrow(tmp_pairs), replace = F)
 
-#plot proportions of self and non-self reply
-
-##### look at self reply probability by the number of neighbors ######
-#this is not working as there is no number of neighbors in the data#
-
-#collect only calls with neighbor data
-
-#####  pos_neigh <- tmp_pairs[which(!is.na(tmp_pairs$nbr_neigh_below_10m)) , ]
-#####  
-#####  pos_neigh$self_prob <- 1/(pos_neigh$nbr_neigh_below_10m+1)
-#####  pos_neigh$neigh_prob <- pos_neigh$nbr_neigh_below_10m/(pos_neigh$nbr_neigh_below_10m+1)
-
-### #get self reply random probs for all call types
-### self_means <- data.frame()
-### for (type in call_pairs){
-###   self_means[1 , type] <- mean(pos_neigh[which(pos_neigh$pair == type) , "self_prob"])}
-### 
-### #get self reply rates for each call type
-### self_rates <- table(pos_neigh$caller_match, pos_neigh$pair)
-### 
-### self_rates <- self_rates[2 , ]/(self_rates[1 , ] + self_rates[2 , ])
-### 
-### self_rates <- c(self_rates[3], self_rates[5], self_rates[1], self_rates[2], self_rates[6], self_rates[4])
-### 
-### 
-### self_means <- rbind(self_means, self_rates)
-### self_means$condition <- c("rand_rate", "rate") #get values for self replies per call type (rate vs random probability)
-### self_means$condition <- as.factor(self_means$condition)
-### data_long <- reshape2::melt(self_means, id.vars= "condition") 
-### 
-### data_long$variable <- ordered(data_long$variable, levels = call_pairs) #get the factor into a proper order
-### 
-### # Grouped bar plot
-### p2 <- ggplot(data_long, aes(fill=condition, y=value, x=variable)) + 
-###   geom_bar(position="dodge", stat="identity") + xlab("call_pair")+ ylab("Self reply") + ggtitle("Mean self reply") + 
-###   labs(fill = "Self reply") + scale_fill_discrete(labels=c( "By chance", "Rate"))
 
 #get sample sizes
 sample_sizes <- data.frame(table(tmp_pairs$pair))
@@ -563,7 +537,7 @@ give.n <- function(x){
   return(c(y = median(x)*1.05, label = length(x))) 
   # experiment with the multiplier to find the perfect position
 }
-ggplot(data = tmp_pairs, aes(x = pair, y = lag, fill = caller_match)) + geom_boxplot(notch = T) +
+ggplot(data = tmp_pairs, aes(x = pair, y = lag, fill = caller_match)) + geom_boxplot(notch = T) + 
   theme_minimal() + scale_fill_grey(start = 0.4,end = 0.6, na.value = "red", aesthetics = "fill") +
   stat_summary(fun.data = give.n, geom = "text", fun = median,
                position = position_dodge(width = 0.75)) +
