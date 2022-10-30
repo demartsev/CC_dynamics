@@ -61,7 +61,7 @@ skip_e <- c("bir|skipof|skipoff|skip off|skip of|resume|recon")
 
 
 # load call data
-calls.all <- read.csv("V:/meerkat/working/processed/acoustic/resolve_conflicts/2021-05-17/2021-05-17_ALL_conflicts_resolved.csv", sep = "\t")
+calls.all <- read.csv("V:/meerkat/working/processed/acoustic/resolve_conflicts/labelfile_conflicts_resolved_2022-10-29.csv", sep = "\t")
 # recode call type to lowercase for consistency between years
 calls.all$callType <- tolower(calls.all$callType)
 
@@ -92,7 +92,7 @@ for (date in date_list) {
   # change times to numeric
   options(digits.secs=3)
   calls$t0.numeric <- as.numeric(as.POSIXlt(calls$t0GPS_UTC,tz="UTC", format = "%Y-%m-%d %H:%M:%OS"))  #NOTE: Looking at these times, they seem rounded to the second - this would be a big problem! LOOK INTO THIS -- FIX
-  calls$tf.numeric <- as.numeric(as.POSIXlt(calls$tEndGPS_UTC,tz="UTC", format  = "%Y-%m-%d %H:%M:%OS")) 
+  calls$tf.numeric <- as.numeric(as.POSIXlt(calls$tendGPS_UTC,tz="UTC", format  = "%Y-%m-%d %H:%M:%OS")) 
   
   # remove some miss labeled  non calls
   calls[ which(calls$entryName == "x"),"isCall"] <- 0
@@ -252,7 +252,7 @@ for (date in date_list) {
   
   #####recode some calls due to between year mismatches######
   
-  all_calls$entryName<-  droplevels(all_calls$entryName)
+  #all_calls$entryName<-  droplevels(all_calls$entryName)
   all_calls <- all_calls[c(names(all_calls)[-1], "entryName")]
   
   
@@ -631,7 +631,7 @@ library(lme4)
 library(jtools)
 library(ggstance)
 
-m3.lmer <- lmer(lag ~ c_dist + pair + c_dist*pair + (1|ind), data = tmp_pairs)
+m3.lmer <- lmer(lag ~ c_dist*pair + (1|ind), data = tmp_pairs)
 summary(m3.lmer) 
 
 sjPlot::plot_model(m3.lmer, type = "int")
