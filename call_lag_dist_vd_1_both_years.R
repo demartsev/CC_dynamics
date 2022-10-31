@@ -51,7 +51,7 @@ sequence_lenght <- 3 #length of call sequence
 seq_start = 10 #silence time before initiating a sequence
 seq.reply = 5 #time frame for a response call
 
-pair_sample_size <- 300 #minimal sample size for call pair analyses
+pair_sample_size <- 200 #minimal sample size for call pair analyses
 
 
 #versions of skip-on/skip-of labels
@@ -114,7 +114,7 @@ for (date in date_list) {
   
   calls[ which(grepl("1:", calls$entryName)), "isCall"] <- 0
   
-  calls$entryName <- droplevels(calls$entryName)
+  #calls$entryName <- droplevels(calls$entryName)
   
   calls <- calls[order(calls$t0.numeric ),]
   
@@ -141,6 +141,7 @@ for (date in date_list) {
   calls <- calls[which(calls$pred_focalType == "F" &  calls$isCall == 1 &  is.na(calls$skip)), ]
   calls <- calls[order(calls$t0.numeric ),]
   
+  if (nrow(calls) == 0) {next}
   #### get updated position data ####
   #### this bit is getting the GPS coordinates from the main RDATA files
   
@@ -167,7 +168,7 @@ for (date in date_list) {
     calls$y_emitted[c] <- get(paste(group, year, "_allY", sep = ""))[row, column]
   } 
   
-  
+
   ##### this get the positions from scans data , giving buffer time for each data point###
   
   #look for scan file on this date
@@ -236,7 +237,7 @@ for (date in date_list) {
   
   
   
-  all_calls[which(all_calls$lag >= seq_start) , "trigger"] <- "trigger" #mark trigger calls after 5 sec of group silence
+  all_calls[which(all_calls$lag >= seq_start) , "trigger"] <- "trigger" #mark trigger calls after X sec of group silence
   
   
   responce_idx <- which(all_calls$trigger == "trigger")+1 #getting the index of potential response calls
@@ -492,7 +493,7 @@ for (x in 1:length(call_pairs_list))
   
 }
 
-grid.arrange(p[[1]], p[[2]],p[[3]], p[[4]] ,  nrow = 2, top = paste("Delta call_type transition matrix (20m cutoff)"))
+grid.arrange(p[[1]], p[[2]],p[[3]], p[[4]] ,  nrow = 2, top = paste("Delta call_type transition matrix (", dist_thresh, "_m cutoff)", sep = ""))
 
 #_________________________________________________________________________________________________________________________
 
