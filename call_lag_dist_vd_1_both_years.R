@@ -51,6 +51,8 @@ sequence_lenght <- 3 #length of call sequence
 seq_start = 10 #silence time before initiating a sequence
 seq.reply = 5 #time frame for a response call
 
+ignore_skip_sections <- "yes" #should skipon sections be omitted across all individuals
+
 pair_sample_size <- 200 #minimal sample size for call pair analyses
 
 
@@ -138,7 +140,16 @@ for (date in date_list) {
   
   
   # remove nonfocal calls and non calls and skipped segments
+  if (ignore_skip_sections == "yes") {
+    # remove nonfocal calls and non calls and skipped segments
   calls <- calls[which(calls$pred_focalType == "F" &  calls$isCall == 1 &  is.na(calls$skip)), ]
+  }else{
+  
+  #or do not skip the skip_on skip off section
+  calls <- calls[which(calls$pred_focalType == "F" &  calls$isCall == 1), ]}
+  
+  
+  
   calls <- calls[order(calls$t0.numeric ),]
   
   if (nrow(calls) == 0) {next}
@@ -373,9 +384,10 @@ text(bp, 0, freq$V1 ,cex=1,pos=3)
 
 
 #cleaning
-both_years <- subset(both_years, select=-c(`1`, `2`, `3`))
+both_years <- subset(both_years, select=-c(`1`, `2`, `3`,`4`, `5`, `6`, `7`))
 names(both_years)[names(both_years) == "final"] <- "stn_call_type"
 
+#write.csv(both_years, paste("all_calls_sync_resolved_", Sys.Date(), ".csv", sep = ""))
 
 #get the pairs for all calls
 all_calls_seq <- both_years
@@ -391,7 +403,7 @@ all_calls_seq[which(is.na(all_calls_seq$lag)), "ini"] <- NA
 ######end data arranging bit############
 #_______________________________________________________________________________________#
 
-
+table(both_years$callType)
 ###make heat maps for call type transitions###
 
 #duplicate data for easier handling
