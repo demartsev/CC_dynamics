@@ -63,9 +63,7 @@ skip_e <- c("bir|skipof|skipoff|skip off|skip of|resume|recon")
 
 
 # load call data
-calls.all <- read.csv("V:/meerkat/working/processed/acoustic/resolve_conflicts/labelfile_conflicts_resolved_2022-11-04.csv", sep = "\t")
-# recode call type to lowercase for consistency between years
-calls.all$callType <- tolower(calls.all$callType)
+calls.all <- read.csv("foc_calls_resolved.csv")
 
 # load movement data
 load("V:/meerkat/working/processed/movement/HM2019_COORDINATES_all_sessions_with_scans.RData")
@@ -95,28 +93,6 @@ for (date in date_list) {
   options(digits.secs=3)
   calls$t0.numeric <- as.numeric(as.POSIXlt(calls$t0GPS_UTC,tz="UTC", format = "%Y-%m-%d %H:%M:%OS"))  #NOTE: Looking at these times, they seem rounded to the second - this would be a big problem! LOOK INTO THIS -- FIX
   calls$tf.numeric <- as.numeric(as.POSIXlt(calls$tendGPS_UTC,tz="UTC", format  = "%Y-%m-%d %H:%M:%OS")) 
-  
-  # remove some miss labeled  non calls
-  calls[ which(calls$entryName == "x"),"isCall"] <- 0
-  calls[ which(calls$entryName == "eating"),"isCall"] <- 0
-  calls[ which(calls$entryName == "chew"),"isCall"] <- 0
-  calls[ which(calls$entryName == "digging"),"isCall"] <- 0
-  calls[ which(calls$entryName == "?"),"isCall"] <- 0
-  calls[ which(calls$entryName == "na"),"isCall"] <- 0
-  calls[ which(calls$entryName == "//"),"isCall"] <- 0
-  calls[ which(calls$callType == "skip"),"isCall"] <- 0
-  calls[ which(calls$callType == "syn"),"isCall"] <- 0
-  calls[ which(calls$callType == "sync"),"isCall"] <- 0
-  
-  calls[ which(grepl("Mar", calls$entryName)), "isCall"] <- 0
-  calls[ which(grepl("bark", calls$entryName)), "isCall"] <- 0
-  calls[ which(grepl("bird", calls$entryName)), "isCall"] <- 0
-  calls[ which(grepl("#", calls$entryName)), "isCall"] <- 0
-  calls[ which(grepl("be", calls$entryName)), "isCall"] <- 0
-  
-  calls[ which(grepl("1:", calls$entryName)), "isCall"] <- 0
-  
-  #calls$entryName <- droplevels(calls$entryName)
   
   calls <- calls[order(calls$t0.numeric ),]
   
@@ -262,19 +238,6 @@ for (date in date_list) {
   }
   
   
-  #####recode some calls due to between year mismatches######
-  
-  #all_calls$entryName<-  droplevels(all_calls$entryName)
-  all_calls <- all_calls[c(names(all_calls)[-1], "entryName")]
-  
-  
-  all_calls[which(all_calls$callType == "s"), "callType"] <- "sn"  
-  all_calls[which(all_calls$callType == "social"), "callType"] <- "soc"  
-  all_calls[which(all_calls$callType == "c"), "callType"] <- "cc"  
-  all_calls[which(all_calls$callType == "aggress"), "callType"] <- "agg"  
-  all_calls[which(grepl("chat",all_calls$callType)), "callType"] <- "agg" 
-  all_calls[which(grepl("ala",all_calls$callType)), "callType"] <- "al" 
-  
   all_calls$ini <- NA
   all_calls$self <- NA
   for (i in 2:nrow(all_calls))
@@ -289,102 +252,11 @@ for (date in date_list) {
 
 
 both_years <- all_calls_seq
-both_years$callType <- both_years$entryName ##### at this point we have all focal entries together 
-
-
-### recode some of the calls due to between years inconsistency ###
-### this is the part that does the actual name recoding ###
-#If we encounter more naming issues which are not resolved, the following lines could be modified
-
-#here set the vectors for unifying modifier and call names
-hybrid <- c("hybrid|hyb")
-sequence <- c("seq|sq")
-move <- c("move|mov")
-agression <- c("aggress|agress|chat|growl|grunt|bark")
-alarm <- c("alarm|alrm|alert|ala")
-lost <- c("lost|loc|lc")
-
-both_years$callType <- str_replace_all(both_years$callType, hybrid, "hyb")
-both_years$callType <- str_replace_all(both_years$callType, sequence, "sq")
-both_years$callType <- str_replace_all(both_years$callType, move, "mo")
-both_years$callType <- str_replace_all(both_years$callType, c("lead"), "ld")
-both_years$callType <- str_replace_all(both_years$callType, c("social"), "soc")
-both_years$callType <- str_replace_all(both_years$callType, c("ukn"), "unk")
-both_years$callType <- str_replace_all(both_years$callType, agression, "agg")
-both_years$callType <- str_replace_all(both_years$callType, alarm, "al")
-both_years$callType <- str_replace_all(both_years$callType, lost, "lc")
-both_years[which(both_years$callType == "s"), "callType"] <- "sn"  
-both_years[which(both_years$callType == "c"), "callType"] <- "cc"  
-
-
-both_years$callType <- str_replace(both_years$callType, fixed("s+"), "sn ") #renaming s as the first element
-both_years$callType <- str_replace(both_years$callType, "\\+s$", " sn ")   #renaming s as the second element
-
-### get hyb calls ###
-
-both_years$hyb <- NA
-both_years[grepl("fu|hyb", both_years$callType), "hyb"] <- "fu"
-both_years[grepl("sq", both_years$callType), "hyb"] <- "sq"
-
-
-
-### get call type elements ####
-call_types <- c("agg|al|cc|ld|mo|sn|soc|lc|unk") #call types that we need
-both_years <- cbind(both_years , str_extract_all(both_years$callType, call_types, simplify = TRUE)) #getting the call type elements 
-both_years$`1` <- as.character(both_years$`1`) #removing factors
-both_years$`2` <- as.character(both_years$`2`) #removing factors
-
-#collecting the call type elements in an alphabetic order
-both_years$final <- ifelse(both_years$`1` < both_years$`2`, paste(both_years$`1`, both_years$`2`), paste(both_years$`2`, both_years$`1`)) 
-# keeping the original order for sequential calls
-both_years[which(both_years$hyb == "sq") , "final"] <- paste(both_years[which(both_years$hyb == "sq") , "1"], both_years[which(both_years$hyb == "sq") , "2"])
-
-
-#looking at the frequencies of the main call types as a self check
-call_types <- c("cc", "soc", "al", "agg", "sn", "ld", "mo", "lc", "unk")
-
-
-freq <- data.frame()
-for (i in 1:length (call_types))
-{
-  freq[i,1] <- sum(str_count(rbind(both_years$`1`, both_years$`2`) , pattern = call_types[i]), na.rm = T)
-  freq[i,2] <- call_types[i]
-}
-freq<- freq[order(freq$V1, decreasing = F),] ### if we decide to recode by the rarest category decreasing is to be set to TRUE
-
-
-#get sample size plot for sanity check
-par(mfrow=c(1,2))
-bp <- barplot(freq$V1, names.arg = freq$V2, main = "Sample sizes per call type") 
-text(bp, 0, freq$V1 ,cex=1,pos=3) 
-#recode the call-types into main call categories. The order of recoding is frequency based 
-# hybrid call_types are collapsed to the more frequent type. 
-
-both_years$type_group <- NA  
-
-for ( i in 1:nrow(freq))
-{ type <- freq$V2[i]
-
-both_years[which(grepl(type, both_years$final)), "type_group"] <- type 
-}
-
-
-#sample sizes per call category
-
-freq <- data.frame()
-for (i in 1:length (call_types))
-{
-  freq[i,1] <- sum(str_count(both_years$type_group , pattern = call_types[i]), na.rm = T)
-  freq[i,2] <- call_types[i]
-}
-freq<- freq[order(freq$V1, decreasing = F),] 
-
-bp <- barplot(freq$V1, names.arg = freq$V2, main = "Sample sizes per call category") #get sample size plot for sanity check
-text(bp, 0, freq$V1 ,cex=1,pos=3) 
+##### at this point we have all focal entries together 
 
 
 #cleaning
-both_years <- subset(both_years, select=-c(`1`, `2`, `3`,`4`, `5`, `6`, `7`))
+#both_years <- subset(both_years, select=-c(`1`, `2`, `3`,`4`, `5`, `6`, `7`))
 names(both_years)[names(both_years) == "final"] <- "stn_call_type"
 
 #write.csv(both_years, paste("all_calls_sync_resolved_", Sys.Date(), ".csv", sep = ""))
@@ -401,7 +273,7 @@ for (i in 2:nrow(all_calls_seq)) {
 all_calls_seq[which(is.na(all_calls_seq$lag)), "ini"] <- NA
 
 ######end data arranging bit############
-#_______________________________________________________________________________________#
+############################################################################
 
 table(both_years$callType)
 ###make heat maps for call type transitions###

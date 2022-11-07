@@ -34,6 +34,14 @@ move <- c("move|mov")
 agression <- c("aggress|agress|chat|growl|grunt|bark")
 alarm <- c("alarm|alrm|alert|ala")
 lost <- c("lost|loc|lc")
+
+
+#versions of skip-on/skip-of labels
+skip_s <- c("oor|skipon|skip on|outrange|pause|recoff|bir|skipof|skipoff|skip off|skip of|resume|recon" )
+ 
+
+calls.all$skip_mark <- NA
+calls.all[ which(grepl(skip_s, calls.all$entryName)), "skip_mark"] <- 1
  
 # remove some miss labeled  non calls
 calls.all[ which(calls.all$entryName == "x"),"isCall"] <- 0
@@ -45,6 +53,11 @@ calls.all[ which(calls.all$entryName == "na"),"isCall"] <- 0
 calls.all[ which(calls.all$entryName == "//"),"isCall"] <- 0
 calls.all[ which(calls.all$callType == "skip"),"isCall"] <- 0
 calls.all[ which(calls.all$callType == "syn"),"isCall"] <- 0
+calls.all[ which(grepl("Mar", calls.all$entryName)), "isCall"] <- 0
+calls.all[ which(grepl("bark", calls.all$entryName)), "isCall"] <- 0
+calls.all[ which(grepl("bird", calls.all$entryName)), "isCall"] <- 0
+calls.all[ which(grepl("#", calls.all$entryName)), "isCall"] <- 0
+calls.all[ which(grepl("be", calls.all$entryName)), "isCall"] <- 0
 
 #removing all modifiers from callType column
 calls.all$callType <- gsub("[][!#$%?x()*,.;<=>@^_`|~.{}]", "", calls.all$callType)
@@ -57,11 +70,8 @@ calls.all$callType <- str_trim(calls.all$callType, side = "both")
 
 
 
-
-
-
-#getting rid of all "not a call" entries
-calls.all <- calls.all[which(calls.all$isCall == 1) , ]
+#getting rid of all "not a call" entries exept from skip markers
+calls.all <- calls.all[which(calls.all$isCall == 1 | calls.all$skip_mark == 1) , ]
 
 #getting rid of all non_focal enteries
 calls.all <- calls.all[which(calls.all$pred_focalType != "NF") , ]
