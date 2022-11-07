@@ -63,7 +63,7 @@ skip_e <- c("bir|skipof|skipoff|skip off|skip of|resume|recon")
 
 
 # load call data
-calls.all <- read.csv("V:/meerkat/working/processed/acoustic/resolve_conflicts/labelfile_conflicts_resolved_2022-10-29.csv", sep = "\t")
+calls.all <- read.csv("V:/meerkat/working/processed/acoustic/resolve_conflicts/labelfile_conflicts_resolved_2022-11-04.csv", sep = "\t")
 # recode call type to lowercase for consistency between years
 calls.all$callType <- tolower(calls.all$callType)
 
