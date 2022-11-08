@@ -16,15 +16,12 @@ library(stringr)
 # Analyses of Meerkat call pair dynamics
 
 
-### this script arranges all recorded meerkat calls into a reasonable filtered state.
-### the call names are recoded into a standard format and collapsed into main categories
-### the skip times are deleted across the whole day and non-focal and no-call enteries are filtered out
+
 ### call positions are updated from the movement files and scan positions are added with buffer times before and after
 ### call pair distances and time lags are calculated
 ### sequence initiations and sequence continuation cutoffs are set
 ### self replies and caller exchange replies are marked
-### the data re-arrangement section end in L360
-### after the data is fully arranged a series of plots are generated
+
 
 # set working directory
 setwd("C:/Users/vdemartsev/My Cloud/Git_projects/CC_dynamics")
