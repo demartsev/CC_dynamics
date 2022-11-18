@@ -1,5 +1,6 @@
 library(gtools)
 library(stringr)
+library(dplyr)
 
 ####### Meerkat call-type recoding and re-arranging data #######
 
@@ -15,7 +16,7 @@ setwd(datadir)
 
 
   # load call data
-  calls.all <- read.delim("labelfile_conflicts_resolved_2022-11-04.csv")
+  calls.all <- read.delim("labelfile_conflicts_resolved_2022-11-17.csv")
   
   # re code call type to lowercase
   calls.all$entryName <- tolower(calls.all$entryName)
@@ -31,18 +32,42 @@ setwd(datadir)
 hybrid <- c("hybrid|hyb")
 sequence <- c("seq|sq")
 move <- c("move|mov")
-agression <- c("aggress|agress|chat|growl|grunt|bark")
+agression <- c("aggress|agress|chat|growl|grunt|bark|chuck|aag")
 alarm <- c("alarm|alrm|alert|ala")
 lost <- c("lost|loc|lc")
 
+#get rid of all oor files
+calls.all <- calls.all[-which(grepl("_oor|HM_VHMM003_SOUNDFOC_20170825_4_label_1.csv|HM_VHMM003_SOUNDFOC_20170825_4_label_2_clockGap.csv|HM_VLF206_SOUNDFOC_20170825_2_label_2_clockGap.csv", calls.all$csvFileName)), ]
 
+#checcking start and stop markers
+all_stops <- data.frame()
+
+
+
+ for (file in unique(calls.all$csvFileName)) {
+   
+   curr <- calls.all[which(calls.all$csvFileName == file), ]
+   
+   row <- c(file, 
+            curr[which(curr$entryName == "start") , "entryName"],
+            curr[which(curr$entryName == "stop") , "entryName"] )
+   
+   all_stops <- bind_rows(all_stops,  data.frame(t(row)))
+ }
+
+#write.csv(all_stops, "stops_check.csv")
 #versions of skip-on/skip-of labels
-skip_s <- c("oor|skipon|skip on|outrange|pause|recoff|bir|skipof|skipoff|skip off|skip of|resume|recon" )
- 
+skip_s <- c("oor|bir|start_oor|pause|resume|stop_oor|outrange|inrange|recoff|recon|skipon|skipoff|skioff|sipoff|skip|skipof|skipff|(focal off)|(focal back on)")
+       
+
+stop_s <- c("stop", "start")
 
 calls.all$skip_mark <- NA
+calls.all$stop_mark <- NA
 calls.all[ which(grepl(skip_s, calls.all$entryName)), "skip_mark"] <- 1
- 
+calls.all[ which(grepl(skip_s, calls.all$entryName)), "isCall"] <- 0
+calls.all[ which(calls.all$entryName %in% stop_s), "stop_mark"] <- 1
+
 # remove some miss labeled  non calls
 calls.all[ which(calls.all$entryName == "x"),"isCall"] <- 0
 calls.all[ which(calls.all$entryName == "eating"),"isCall"] <- 0
@@ -54,7 +79,7 @@ calls.all[ which(calls.all$entryName == "//"),"isCall"] <- 0
 calls.all[ which(calls.all$callType == "skip"),"isCall"] <- 0
 calls.all[ which(calls.all$callType == "syn"),"isCall"] <- 0
 calls.all[ which(grepl("Mar", calls.all$entryName)), "isCall"] <- 0
-calls.all[ which(grepl("bark", calls.all$entryName)), "isCall"] <- 0
+#calls.all[ which(grepl("bark", calls.all$entryName)), "isCall"] <- 0
 calls.all[ which(grepl("bird", calls.all$entryName)), "isCall"] <- 0
 calls.all[ which(grepl("#", calls.all$entryName)), "isCall"] <- 0
 calls.all[ which(grepl("be", calls.all$entryName)), "isCall"] <- 0
@@ -71,7 +96,7 @@ calls.all$callType <- str_trim(calls.all$callType, side = "both")
 
 
 #getting rid of all "not a call" entries exept from skip markers
-calls.all <- calls.all[which(calls.all$isCall == 1 | calls.all$skip_mark == 1) , ]
+calls.all <- calls.all[which(calls.all$isCall == 1 | calls.all$skip_mark == 1 | calls.all$stop_mark == 1) , ]
 
 #getting rid of all non_focal enteries
 calls.all <- calls.all[which(calls.all$pred_focalType != "NF") , ]
@@ -164,5 +189,9 @@ names(calls.all)[names(calls.all) == "final"] <- "stn_call_type"
 #check sample sizes
 table(calls.all$stn_call_type)
 table(calls.all$type_group)
+
+
+
+#mislabled <- calls.all[which(calls.all$isCall == 1 & calls.all$stn_call_type == " " ) , ]
 
 write.csv(calls.all, "foc_calls_resolved.csv")

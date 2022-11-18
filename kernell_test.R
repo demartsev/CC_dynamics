@@ -75,8 +75,10 @@ setwd("C:/Users/vdemartsev/My Cloud/Git_projects/CC_dynamics")
 #skipped time segments are omitted across all the group. These steps are done in call_rename_filt.R script
 
 #load data
-all_calls_seq <- read.csv("all_calls_sync_resolved_2022-11-08.csv")
-all_calls_seq <- all_calls_seq[ , -c(29:40)] #get rid of some garbage columns
+all_calls_seq <- read.csv("all_calls_sync_resolved_2022-11-18.csv")
+#all_calls_seq <- all_calls_seq[ , -c(29:40)] #get rid of some garbage columns
+
+
 
 #set kernell variables
 max.lag <- 5
@@ -100,8 +102,7 @@ par(mfrow=c(2,2))
 for (call_type in calls) {
   for (age in age_class) {
     
-    #individuals <- unique(all_calls_seq$ind) #get individual meerkats #all meerkats
-    #pool <- "All age classes"
+    
     if (age != "Juvenile") {
       individuals <- unique(all_calls_seq[which(all_calls_seq$status != "Juvenile"), "ind"]) #only adult main
     }else{

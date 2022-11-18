@@ -48,19 +48,23 @@ sequence_lenght <- 3 #length of call sequence
 seq_start = 10 #silence time before initiating a sequence
 seq.reply = 5 #time frame for a response call
 
-ignore_skip_sections <- "yes" #should skipon sections be omitted across all individuals
+ignore_skip_sections <- "no" #should skipon sections be omitted across all individuals
 
 pair_sample_size <- 200 #minimal sample size for call pair analyses
 
 
 #versions of skip-on/skip-of labels
-skip_s <- c("oor|skipon|skip on|outrange|pause|recoff" )
-skip_e <- c("bir|skipof|skipoff|skip off|skip of|resume|recon")
+skip_s <- c("oor|skipon|skip on|outrange|pause|recoff|(focal off)" )
+skip_e <- c("bir|skipof|skipoff|skip off|skip of|resume|recon|inrange|skioff|skipff|(focal back on)")
 
 
 
 # load call data
 calls.all <- read.csv("foc_calls_resolved.csv")
+
+
+
+
 
 # load movement data
 load("V:/meerkat/working/processed/movement/HM2019_COORDINATES_all_sessions_with_scans.RData")
@@ -93,6 +97,9 @@ for (date in date_list) {
   
   calls <- calls[order(calls$t0.numeric ),]
   
+  
+  
+  
   ##### removing skipped segments across recorders ######
   #find the times that need to be skipped across recorders
   skip_st <- which(grepl(skip_s,  calls$entryName) == T)
@@ -118,8 +125,18 @@ for (date in date_list) {
   calls <- calls[which(calls$pred_focalType == "F" &  calls$isCall == 1 &  is.na(calls$skip)), ]
   }else{
   
-  #or do not skip the skip_on skip off section
-  calls <- calls[which(calls$pred_focalType == "F" &  calls$isCall == 1), ]}
+  #or do not skip the skip_on skip off sections and start and end markers
+  calls <- calls[which(calls$pred_focalType == "F"), ]
+  
+  #GET LATEST START AND FIRST STOP
+  lst_strt <-  max(
+    tapply(calls[which(calls$callType == "start"), "t0.numeric"], calls[which(calls$callType == "start"), "ind"], 
+           FUN = min))
+  frst_stop <- min(tapply(calls[which(calls$callType == "stop"), "t0.numeric"], calls[which(calls$callType == "stop"), "ind"], 
+                          FUN = max))
+  
+  #subset the daily calls between latest start and earliest stop
+  calls <- calls[which(calls$t0.numeric > lst_strt & calls$t0.numeric < frst_stop), ]}
   
   
   
@@ -253,10 +270,21 @@ both_years <- all_calls_seq
 
 
 #cleaning
-#both_years <- subset(both_years, select=-c(`1`, `2`, `3`,`4`, `5`, `6`, `7`))
+both_years <- subset(both_years, select=-c(`X1`, `X2`, `X3`,`X4`))
 names(both_years)[names(both_years) == "final"] <- "stn_call_type"
 
-#write.csv(both_years, paste("all_calls_sync_resolved_", Sys.Date(), ".csv", sep = ""))
+both_years$t0GPS_UTC <- as.POSIXct(both_years$t0GPS_UTC, tz = "UTC")
+
+   
+   
+   if (ignore_skip_sections == "yes") {
+   write.csv(both_years, paste("all_calls_sync_resolved_", Sys.Date(), ".csv", sep = ""))
+   }else{
+   #write.csv(both_years, paste("all_calls_sync_resolved_oor_not_skipped", Sys.Date(), ".csv", sep = ""))
+   write.csv(both_years, paste("V:/meerkat/working/processed/acoustic/resolve_conflicts/all_calls_sync_resolved_with_oor_", Sys.Date(), ".csv", sep = "")) }
+   #save(both_years, file = paste("V:/meerkat/working/processed/acoustic/resolve_conflicts/all_calls_sync_resolved_with_oor_", Sys.Date(), ".RData", sep = ""))
+   
+
 
 #get the pairs for all calls
 all_calls_seq <- both_years
