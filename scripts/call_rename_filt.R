@@ -37,9 +37,20 @@ alarm <- c("alarm|alrm|alert|ala")
 lost <- c("lost|loc|lc")
 
 #get rid of all oor files
-calls.all <- calls.all[-which(grepl("_oor|HM_VHMM003_SOUNDFOC_20170825_4_label_1.csv|HM_VHMM003_SOUNDFOC_20170825_4_label_2_clockGap.csv|HM_VLF206_SOUNDFOC_20170825_2_label_2_clockGap.csv", calls.all$csvFileName)), ]
+#calls.all <- calls.all[-which(grepl("_oor|HM_VHMM003_SOUNDFOC_20170825_4_label_1.csv|HM_VHMM003_SOUNDFOC_20170825_4_label_2_clockGap.csv|HM_VLF206_SOUNDFOC_20170825_2_label_2_clockGap.csv", calls.all$csvFileName)), ]
+oor_files <- 
+  unique(
+    calls.all[which(grepl("_oor|HM_VHMM003_SOUNDFOC_20170825_4_label_1.csv|HM_VHMM003_SOUNDFOC_20170825_4_label_2_clockGap.csv|HM_VLF206_SOUNDFOC_20170825_2_label_2_clockGap.csv", calls.all$csvFileName)), "csvFileName"])
 
-#checcking start and stop markers
+
+calls.all[which(calls.all$csvFileName %in% oor_files & calls.all$entryName == "start"), 
+          c("callType", "entryName")] <- "oor_start"
+
+calls.all[which(calls.all$csvFileName %in% oor_files & calls.all$entryName == "stop"), 
+          c("callType", "entryName")] <- "oor_stop"
+
+
+#checking start and stop markers
 all_stops <- data.frame()
 
 
@@ -184,14 +195,15 @@ names(calls.all)[names(calls.all) == "final"] <- "stn_call_type"
 ## the columns containing call type info:
 ## hyb - indicator of fused or sequential calls
 ## stn_call_type - details the call type elements in each call
-## type_group - only main calls, hybrids were collapsed into the parent type acording to overal call frequency 
+## type_group - only main calls, hybrids were collapsed into the parent type acording to overall call frequency 
 
 #check sample sizes
 table(calls.all$stn_call_type)
+table(calls.all$callType)
 table(calls.all$type_group)
 
 
-
+calls.all <- calls.all[ , - c(34:37)] 
 #mislabled <- calls.all[which(calls.all$isCall == 1 & calls.all$stn_call_type == " " ) , ]
 
-write.csv(calls.all, "foc_calls_resolved.csv")
+#write.csv(calls.all, "foc_calls_resolved.csv")
