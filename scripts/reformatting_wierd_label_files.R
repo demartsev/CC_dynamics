@@ -1,4 +1,4 @@
-#test change of script for GIT
+
 setwd("V:/meerkat/working/processed/acoustic/HM2019/2_labels_verified/20190623")
 
 file_name <- "HM_VHMF010_SOUNDFOC_20190623_LL_BA"
