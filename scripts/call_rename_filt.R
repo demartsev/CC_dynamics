@@ -16,7 +16,7 @@ setwd(datadir)
 
 
   # load call data
-  calls.all <- read.delim("labelfile_conflicts_resolved_2022-11-17.csv")
+  calls.all <- read.delim("labelfile_conflicts_resolved_2022-12-03.csv")
   
   # re code call type to lowercase
   calls.all$entryName <- tolower(calls.all$entryName)
@@ -106,7 +106,7 @@ calls.all$callType <- str_trim(calls.all$callType, side = "both")
 
 
 
-#getting rid of all "not a call" entries exept from skip markers
+#getting rid of all "not a call" entries except from skip markers
 calls.all <- calls.all[which(calls.all$isCall == 1 | calls.all$skip_mark == 1 | calls.all$stop_mark == 1) , ]
 
 #getting rid of all non_focal enteries
@@ -205,5 +205,9 @@ table(calls.all$type_group)
 
 calls.all <- calls.all[ , - c(34:37)] 
 #mislabled <- calls.all[which(calls.all$isCall == 1 & calls.all$stn_call_type == " " ) , ]
+#mislabled <- calls.all[which(is.na(calls.all$type_group)) , ] 
 
-#write.csv(calls.all, "foc_calls_resolved.csv")
+
+
+
+write.csv(calls.all, "foc_calls_resolved.csv")

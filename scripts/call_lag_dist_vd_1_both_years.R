@@ -336,8 +336,8 @@ both_years <- all_calls_seq
 
 
 #cleaning
-both_years <- subset(both_years, select = -c(`X1`, `X2`, `X3`, `X4`))
-names(both_years)[names(both_years) == "final"] <- "stn_call_type"
+#both_years <- subset(both_years, select = -c(`X1`, `X2`, `X3`, `X4`))
+#names(both_years)[names(both_years) == "final"] <- "stn_call_type"
 
 both_years$t0GPS_UTC <- as.POSIXct(both_years$t0GPS_UTC, tz = "UTC")
 
