@@ -1,5 +1,7 @@
 #This is a script for looking at meerkat call rate as a function of spatial displacement.
 #It uses Baptiste's track discretization data and cross references it with the audio
+#the call rate is calculated from the time or arrival to a patch and along few equal size windows 
+#while the individual is in the patch
 library(ggplot2)
 library(lubridate)
 library(plotly)
@@ -7,11 +9,15 @@ library(viridis)
 library(ggExtra)
 library(cowplot)
 library(ggpubr)
+library(akima)
 
 setwd("C:/Users/vdemartsev/My Cloud/Git_projects/CC_dynamics")
 
 #set the displacement distance 
 distance <- 5
+
+#set time window 
+tw <- 5
 
 #load movement data object
 load(paste("discreet_tracks_data/spatialMetrics_", distance, "m.RData", sep = ""))
@@ -75,7 +81,7 @@ for(date in 1:length (dates)) {
     
     
  #  #getting individual baseline call rates
- #  #get the base call rate for the tome window of interest
+ #  #get the base call rate for the time window of interest
  #  base_call_rate <- length(which(calls_select$isCall == 1)) / 
  #    as.numeric(difftime(labels_stop ,  labels_start, units="secs"))
  #  
@@ -89,11 +95,11 @@ for(date in 1:length (dates)) {
  #  
  
    ################################################################################
-    #getting random 2 sec intervals 
+    #getting random intervals of duration tw 
     
     #generating random time points within the recorded interval
     rand_times <- as.POSIXct(labels_start, tz = "UTC") + runif(n=5000, min=0, 
-                                              max =   as.numeric(difftime(labels_stop ,  labels_start, units="secs"))-2)
+                                              max =   as.numeric(difftime(labels_stop ,  labels_start, units="secs"))-tw)
     all_rand_widows <- c()
     all_cc_calls_in_rand_window <- c()
     all_sn_calls_in_rand_window  <- c()
@@ -101,8 +107,8 @@ for(date in 1:length (dates)) {
     for (j in 1:length(rand_times)) { 
      
       #get call rate for each position
-      t0r <- rand_times[j] - 1
-      t1r <- rand_times[j] + 1
+      t0r <- rand_times[j]
+      t1r <- rand_times[j] + tw
       
       calls_in_rand_window <- calls_select[which(as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t0r & 
                                               as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t1r) , ]
@@ -125,8 +131,8 @@ for(date in 1:length (dates)) {
     for (i in 1:nrow(individual_select)) { 
       
       #get call rate for each position
-      t0 <- individual_select$t[i] - 1
-      t1 <- individual_select$t[i] + 1
+      t0 <- individual_select$t[i] 
+      t1 <- individual_select$t[i] + tw
       
     calls_in_window <- calls_select[which(as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t0 & 
                                           as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t1) , ]
@@ -152,80 +158,85 @@ for(date in 1:length (dates)) {
   }
   
 }
-
-#write.csv(all_points, "call_rates_5m_displacement.csv")
-all_points <- read.csv("call_rates_5m_displacement.csv")
+all_points_1 <- all_points
+#write.csv(all_points, "call_rates_5m_displacement_5sec_tw.csv")
+all_points <- read.csv("call_rates_5m_displacement_5sec_tw.csv")
 all_points <- all_points[which(all_points$pastStepDuration < 300), ]
 all_points <- all_points[which(all_points$futurStepDuration < 300), ]
 
-#all_points <- all_points[-which(is.na(all_points$cc_call_rate)) ,]
+
+ #plot speed vs past step duration
+ ggplot(data = all_points, aes(x = pastStepDuration, y = indSpeedPast)) + geom_smooth(method = "lm")
+ past_step_cutoff <- quantile(all_points$pastStepDuration, probs = seq(0, 1, 0.1))[2]
+
+all_points <- all_points[-which(is.na(all_points$cc_call_rate)) ,]
 
 
 ### calculating call rates by time of arrival ####
 ####################################################
 
-#arriving and staying for at least 30 sec (no fast departures)
-p <- ggplot(data = all_points[which(all_points$pastStepDuration < 300 & all_points$futurStepDuration > 30), ] , aes(x = pastStepDuration, y = cc_call_rate)) + 
-  geom_smooth(method = "gam", colour="black") + theme_bw()
+#getting 10% of the futurStepDuration
+quantile(all_points$futurStepDuration, probs = seq(0, 1, 0.1))[2]
+
+quantile(all_points$futurStepDuration, probs = seq(0, 1, 0.1))
+
+#getting 90% of the futurStepDuration
+quantile(all_points[which(all_points$futurStepDuration<22), "pastStepDuration"], probs = seq(0, 1, 0.1))[10]
+
+#leaving fast < 22 sec 
+p <- ggplot(data = all_points[which(all_points$futurStepDuration < 22), ] , aes(x = pastStepDuration, y = cc_call_rate)) + 
+  geom_smooth(method = "gam", colour="black") + theme_bw() + ggtitle("CC rate when leaving fast < 22 sec") + 
+  geom_hline(yintercept=1, linetype="dashed", color = "red", size=1) + 
+  xlim(0, quantile(all_points[which(all_points$futurStepDuration < 22), "pastStepDuration"], probs = seq(0, 1, 0.1))[10])
 xdens <- axis_canvas(p, axis = "x") +
-  geom_density(data = all_points[which(all_points$pastStepDuration < 300 & all_points$futurStepDuration > 30), ], 
+  geom_density(data = all_points[which(all_points$futurStepDuration < 22), ], 
                aes(x = pastStepDuration))
 p1 <- insert_xaxis_grob(p, xdens, grid::unit(.2, "null"), position = "top") 
 ggdraw(p1)
 
 
-#just arriving and leaving within 30 sec (just pasing by)
-b <- ggplot(data = all_points[which(all_points$pastStepDuration < 300 & all_points$futurStepDuration < 30), ] , aes(x = pastStepDuration, y = cc_call_rate)) + 
-  geom_smooth(method = "lm", colour="black") + theme_bw() 
+#leaving slow > 20 sec
+b <- ggplot(data = all_points[which(all_points$futurStepDuration > 22), ] , aes(x = pastStepDuration, y = cc_call_rate)) + 
+  geom_smooth(method = "gam", colour="black") + theme_bw() + ggtitle("CC rate when leaving slow > 22 sec") + 
+  geom_hline(yintercept=1, linetype="dashed", color = "red", size=1) + 
+  xlim(0, quantile(all_points[which(all_points$futurStepDuration > 22), "pastStepDuration"], probs = seq(0, 1, 0.1))[10])
 xdens <- axis_canvas(b, axis = "x") +
-  geom_density(data = all_points[which(all_points$pastStepDuration < 300 & all_points$futurStepDuration < 30), ], 
+  geom_density(data = all_points[which(all_points$futurStepDuration > 22), ], 
                aes(x = pastStepDuration))
 b1 <- insert_xaxis_grob(b, xdens, grid::unit(.2, "null"), position = "top")
 ggdraw(b1)
 
 
-#arriving a while ago but now is about to leave
-c <- ggplot(data = all_points[which(all_points$pastStepDuration > 60 & all_points$futurStepDuration < 30), ] , aes(x = pastStepDuration, y = cc_call_rate)) + 
-  geom_smooth(method = "lm", colour="black") + theme_bw() 
-xdens <- axis_canvas(c, axis = "x") +
-  geom_density(data = all_points[which(all_points$pastStepDuration > 30 & all_points$futurStepDuration < 30), ], 
-               aes(x = pastStepDuration))
-c1 <- insert_xaxis_grob(c, xdens, grid::unit(.2, "null"), position = "top")
-ggdraw(c1)
 ##########################################################################################
+#SN plots
+#########################################################################################
 
-
-
-#all_points <- all_points[-which(is.na(all_points$sn_call_rate)) ,]
 
 #arriving and staying for at least 30 sec (no fast departures)
-p <- ggplot(data = all_points[which(all_points$pastStepDuration < 300 & all_points$futurStepDuration > 30), ] , aes(x = pastStepDuration, y = sn_call_rate)) + 
-  geom_smooth(method = "gam", colour="black") + theme_bw() 
+p <- ggplot(data = all_points[which(all_points$futurStepDuration > 22), ] , aes(x = pastStepDuration, y = sn_call_rate)) + 
+  geom_smooth(method = "gam", colour="black") + theme_bw() + ggtitle("sn rate when leaving slow > 22 sec") + 
+  geom_hline(yintercept=1, linetype="dashed", color = "red", size=1) + 
+  xlim(0, quantile(all_points[which(all_points$futurStepDuration > 22), "pastStepDuration"], probs = seq(0, 1, 0.1))[10])
 xdens <- axis_canvas(p, axis = "x") +
-  geom_density(data = all_points[which(all_points$pastStepDuration < 300 & all_points$futurStepDuration > 30), ], 
+  geom_density(data = all_points[which(all_points$futurStepDuration > 22), ], 
                aes(x = pastStepDuration))
 p1 <- insert_xaxis_grob(p, xdens, grid::unit(.2, "null"), position = "top")
 ggdraw(p1)
 
 
-#just arriving and leaving within 30 sec (just passing by)
-b <- ggplot(data = all_points[which(all_points$pastStepDuration < 3000 & all_points$futurStepDuration < 30), ] , aes(x = pastStepDuration, y = sn_call_rate)) + 
-  geom_smooth(method = "gam", colour="black") + theme_bw() 
+#arriving and leaving within 20 sec (just passing by)
+b <- ggplot(data = all_points[which(all_points$futurStepDuration < 22), ] , aes(x = pastStepDuration, y = sn_call_rate)) + 
+  geom_smooth(method = "gam", colour="black") + theme_bw() + ggtitle("sn rate when leaving fast < 22 sec") + 
+  geom_hline(yintercept=1, linetype="dashed", color = "red", size=1) + 
+  xlim(0, quantile(all_points[which(all_points$futurStepDuration < 22), "pastStepDuration"], probs = seq(0, 1, 0.1))[10])
 xdens <- axis_canvas(b, axis = "x") +
-  geom_density(data = all_points[which(all_points$pastStepDuration < 300 & all_points$futurStepDuration < 30), ], 
+  geom_density(data = all_points[which(all_points$futurStepDuration < 22), ], 
                aes(x = pastStepDuration))
 b1 <- insert_xaxis_grob(b, xdens, grid::unit(.2, "null"), position = "top")
 ggdraw(b1)
 
+gridExtra::grid.arrange(b1, p1)
 
-#arriving a while ago but now is about to leave
-c <- ggplot(data = all_points[which(all_points$pastStepDuration > 30 & all_points$futurStepDuration < 30), ] , aes(x = pastStepDuration, y = sn_call_rate)) + 
-  geom_smooth(method = "gam", colour="black") + theme_bw() 
-xdens <- axis_canvas(c, axis = "x") +
-  geom_density(data = all_points[which(all_points$pastStepDuration > 30 & all_points$futurStepDuration < 30), ], 
-               aes(x = pastStepDuration))
-c1 <- insert_xaxis_grob(c, xdens, grid::unit(.2, "null"), position = "top")
-ggdraw(c1)
 
 ####################################################
 ### calculating call rates by speed of arrival ####
@@ -389,6 +400,7 @@ ggplot(data = all_points[which(all_points$pastStepDuration < 300 & all_points$fu
 
 
 all_points <- all_points[-which(is.na(all_points$sn_call_rate)) ,]
+all_points <- all_points[-which(is.na(all_points$cc_call_rate)) ,]
 all_points <- all_points[-which(is.na(all_points$call_rate)) ,]
 all_points <- all_points[-which(all_points$call_rate == "Inf") ,]
 
@@ -406,25 +418,19 @@ ggplot(data = all_points[which(all_points$pastStepDuration < 300), ] , aes(x = p
 
 
 
-s = interp(y = all_points[which(all_points$pastStepDuration < 300 & 
-                                  all_points$futurStepDuration < 300), "pastStepDuration" ], 
-           x = all_points[which(all_points$pastStepDuration < 300 & 
-                                  all_points$futurStepDuration < 300), "futurStepDuration" ],
-           z = all_points[which(all_points$pastStepDuration < 300 & 
-                                  all_points$futurStepDuration < 300), "cc_call_rate" ], duplicate = "mean")
+s = interp(y = all_points[ , "pastStepDuration" ], 
+           x = all_points[ , "indSpeedFutur" ],
+           z = all_points[ , "cc_call_rate" ], duplicate = "mean")
 
 p <- plot_ly(x = s$x, y = s$y, z = s$z) %>% add_surface()
 p
 
 
 
-fig <- plot_ly(x = all_points[which(all_points$pastStepDuration < 300 & 
-                                      all_points$futurStepDuration < 300), "futurStepDuration" ],
-               y = all_points[which(all_points$pastStepDuration < 300 & 
-                                      all_points$futurStepDuration < 300), "pastStepDuration" ],
-               z = all_points[which(all_points$pastStepDuration < 300 & 
-                                      all_points$futurStepDuration < 300), "cc_call_rate" ],
-               type = "contour", contours = list(showlabels = TRUE))
+fig <- plot_ly(x = all_points[ , "futurStepDuration" ],
+               y = all_points[ , "indSpeedFutur" ],
+               z = all_points[ , "cc_call_rate" ],
+               type = "heatmap" )
 fig
 
 y <- all_points[which(all_points$pastStepDuration < 300 & 
