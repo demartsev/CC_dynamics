@@ -13,7 +13,7 @@ library(tidyverse)
 setwd("C:/Users/vdemartsev/My Cloud/Git_projects/CC_dynamics")
 
 #set the displacement distance
-distance <- 5
+distance <- 10
 
 #set time window
 tw <- 10
@@ -132,7 +132,7 @@ for (date in 1:length (dates)) {
           t2 <- t1 + tw
           t3 <- t2 + tw
           t4 <- t3 + tw
-          
+          t5 <- t4 + tw
           calls_in_5_window <-
             calls_select[which(
               as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t0 &
@@ -164,6 +164,14 @@ for (date in 1:length (dates)) {
             ) , ]
           calls_in_20_window <-
             calls_in_20_window[which(calls_in_20_window$isCall == 1) , ]
+          
+          calls_in_25_window <-
+            calls_select[which(
+              as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t4 &
+                as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t5
+            ) , ]
+          calls_in_25_window <-
+            calls_in_25_window[which(calls_in_25_window$isCall == 1) , ]
           
           
           #number of calls in 1 sec windows
@@ -201,6 +209,15 @@ for (date in 1:length (dates)) {
                 "call_rate",
                 tw*4
               ),
+              
+              bind_cols(
+                individual_select[arrival_row, ],
+                (nrow(calls_in_25_window)/tw) - base_call_rate,
+                "call_rate",
+                tw*5
+              ),
+              
+              
               bind_cols(
                 individual_select[arrival_row, ],
                 length(which(
@@ -236,6 +253,15 @@ for (date in 1:length (dates)) {
               bind_cols(
                 individual_select[arrival_row, ],
                 length(which(
+                  calls_in_25_window$type_group  == "cc"
+                )) / tw - base_cc_rate,
+                "cc_call_rate",
+                tw*5
+              ),
+              
+              bind_cols(
+                individual_select[arrival_row, ],
+                length(which(
                   calls_in_5_window$type_group  == "sn"
                 )) / tw - base_sn_rate,
                 "sn_call_rate",
@@ -264,6 +290,15 @@ for (date in 1:length (dates)) {
                 )) / tw - base_sn_rate,
                 "sn_call_rate",
                 tw*4
+              ),
+              
+              bind_cols(
+                individual_select[arrival_row, ],
+                length(which(
+                  calls_in_25_window$type_group  == "sn"
+                )) / tw - base_sn_rate,
+                "sn_call_rate",
+                tw*5
               )
             )
           i <-  arrival_row
