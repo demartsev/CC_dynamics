@@ -1,4 +1,5 @@
-#This is a script for looking at meerkat call rate as a function of spatial displacement.
+#This is a script for looking at meerkat call rate after arriving at a new foraging patch
+#the script generates several time windows after arrival to the patch and calculates call rate in each one of the windows.
 #It uses Baptiste's track discretization data and cross references it with the audio
 library(ggplot2)
 library(lubridate)
@@ -9,7 +10,9 @@ library(cowplot)
 library(ggpubr)
 library(akima)
 library(tidyverse)
-
+library(grid)
+library(gridExtra)
+library(lemon)
 setwd("C:/Users/vdemartsev/My Cloud/Git_projects/CC_dynamics")
 
 #set the displacement distance
@@ -108,10 +111,6 @@ for (date in 1:length (dates)) {
         as.numeric(difftime(labels_stop ,  labels_start, units="secs"))
     
     
-    
-    
-    
-    
     i <- 1
     while (i < nrow(individual_select)) {
       #get call rate for each position
@@ -122,206 +121,125 @@ for (date in 1:length (dates)) {
       arrival_row <- which(individual_select$t == t0)
       if (length(arrival_row) == 0) {
         i <- which(individual_select$t > t0 )[1]
-      } else{
+      }else{
         fut_step_dur <- individual_select$futurStepDuration[arrival_row]
         
         if (fut_step_dur < 50) {
           i <- i + 1
-        } else{
-          t1 <- t0 + tw
-          t2 <- t1 + tw
-          t3 <- t2 + tw
-          t4 <- t3 + tw
-          t5 <- t4 + tw
-          calls_in_5_window <-
-            calls_select[which(
-              as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t0 &
-                as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t1
-            ) , ]
-          calls_in_5_window <-
-            calls_in_5_window[which(calls_in_5_window$isCall == 1) , ]
+        }else{
           
-          calls_in_10_window <-
-            calls_select[which(
-              as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t1 &
-                as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t2
-            ) , ]
-          calls_in_10_window <-
-            calls_in_10_window[which(calls_in_10_window$isCall == 1) , ]
+          nwind <- floor(fut_step_dur/10)-1
           
-          calls_in_15_window <-
-            calls_select[which(
-              as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t2 &
-                as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t3
-            ) , ]
-          calls_in_15_window <-
-            calls_in_15_window[which(calls_in_15_window$isCall == 1) , ]
+          for (win in 0:nwind) {
+            
+            calls_in_window <-
+              calls_select[which(
+                as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t0+tw*win &
+                  as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t0+tw*(win+1)
+              ) , ]
+            calls_in_window <-
+              calls_in_window[which(calls_in_window$isCall == 1) , ]
+            
+            
+            
+            cc_calls_in_window <-
+              calls_select[which(
+                as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t0+tw*win &
+                  as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t0+tw*(win+1) &
+                  calls_select$type_group == "cc"
+              ) , ]
+            
+            sn_calls_in_window <-
+              calls_select[which(
+                as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t0+tw*win &
+                  as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t0+tw*(win+1) &
+                  calls_select$type_group == "sn"
+              ) , ]
+    
+            
+     all_arrival_points <- bind_rows(all_arrival_points,               
+          bind_cols(
+            individual_select[arrival_row, ],
+            (nrow(calls_in_window)/tw)-base_call_rate,
+            "call_rate",
+            tw*win
+          ))
+     all_arrival_points <- bind_rows(all_arrival_points,               
+                                     bind_cols(
+                                       individual_select[arrival_row, ],
+                                       (nrow(cc_calls_in_window)/tw)-base_cc_rate,
+                                       "cc_call_rate",
+                                       tw*win
+                                     ))
+     all_arrival_points <- bind_rows(all_arrival_points,               
+                                     bind_cols(
+                                       individual_select[arrival_row, ],
+                                       (nrow(sn_calls_in_window)/tw)-base_sn_rate,
+                                       "sn_call_rate",
+                                       tw*win
+                                     ))
+     
+    
+          }
           
-          calls_in_20_window <-
-            calls_select[which(
-              as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t3 &
-                as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t4
-            ) , ]
-          calls_in_20_window <-
-            calls_in_20_window[which(calls_in_20_window$isCall == 1) , ]
-          
-          calls_in_25_window <-
-            calls_select[which(
-              as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t4 &
-                as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t5
-            ) , ]
-          calls_in_25_window <-
-            calls_in_25_window[which(calls_in_25_window$isCall == 1) , ]
-          
-          
-          #number of calls in 1 sec windows
-          #individual_select$call_rate[i] <- nrow(calls_in_window)/call_rate_all
-          
-          #number of CC calls in 1 sec windows
-          #individual_select$cc_call_rate[i] <- length(which(calls_in_window$type_group  == "cc")) / call_rate_all
-          
-          #number of sn calls in 1 sec windows
-          #individual_select$sn_call_rate[i] <- length(which(calls_in_window$type_group  == "sn")) / call_rate_sn
-          
-          summ_point <-
-            bind_rows(
-              bind_cols(
-                individual_select[arrival_row, ],
-                (nrow(calls_in_5_window)/tw)-base_call_rate,
-                "call_rate",
-                tw
-              ),
-              bind_cols(
-                individual_select[arrival_row, ],
-                (nrow(calls_in_10_window)/tw) - base_call_rate,
-                "call_rate",
-                tw*2
-              ),
-              bind_cols(
-                individual_select[arrival_row, ],
-                (nrow(calls_in_15_window)/tw) - base_call_rate,
-                "call_rate",
-                tw*3
-              ),
-              bind_cols(
-                individual_select[arrival_row, ],
-                (nrow(calls_in_20_window)/tw) - base_call_rate,
-                "call_rate",
-                tw*4
-              ),
-              
-              bind_cols(
-                individual_select[arrival_row, ],
-                (nrow(calls_in_25_window)/tw) - base_call_rate,
-                "call_rate",
-                tw*5
-              ),
-              
-              
-              bind_cols(
-                individual_select[arrival_row, ],
-                length(which(
-                  calls_in_5_window$type_group  == "cc"
-                )) / tw - base_cc_rate,
-                "cc_call_rate",
-                tw
-              ),
-              bind_cols(
-                individual_select[arrival_row, ],
-                length(which(
-                  calls_in_10_window$type_group  == "cc"
-                )) / tw- base_cc_rate,
-                "cc_call_rate",
-                tw*2
-              ),
-              bind_cols(
-                individual_select[arrival_row, ],
-                length(which(
-                  calls_in_15_window$type_group  == "cc"
-                )) / tw- base_cc_rate,
-                "cc_call_rate",
-                tw*3
-              ),
-              bind_cols(
-                individual_select[arrival_row, ],
-                length(which(
-                  calls_in_20_window$type_group  == "cc"
-                )) / tw - base_cc_rate,
-                "cc_call_rate",
-                tw*4
-              ),
-              bind_cols(
-                individual_select[arrival_row, ],
-                length(which(
-                  calls_in_25_window$type_group  == "cc"
-                )) / tw - base_cc_rate,
-                "cc_call_rate",
-                tw*5
-              ),
-              
-              bind_cols(
-                individual_select[arrival_row, ],
-                length(which(
-                  calls_in_5_window$type_group  == "sn"
-                )) / tw - base_sn_rate,
-                "sn_call_rate",
-                tw
-              ),
-              bind_cols(
-                individual_select[arrival_row, ],
-                length(which(
-                  calls_in_10_window$type_group  == "sn"
-                )) / tw - base_sn_rate,
-                "sn_call_rate",
-                tw*2
-              ),
-              bind_cols(
-                individual_select[arrival_row, ],
-                length(which(
-                  calls_in_15_window$type_group  == "sn"
-                )) / tw - base_sn_rate,
-                "sn_call_rate",
-                tw*3
-              ),
-              bind_cols(
-                individual_select[arrival_row, ],
-                length(which(
-                  calls_in_20_window$type_group  == "sn"
-                )) / tw - base_sn_rate,
-                "sn_call_rate",
-                tw*4
-              ),
-              
-              bind_cols(
-                individual_select[arrival_row, ],
-                length(which(
-                  calls_in_25_window$type_group  == "sn"
-                )) / tw - base_sn_rate,
-                "sn_call_rate",
-                tw*5
-              )
-            )
-          i <-  arrival_row
-          all_arrival_points <-
-            bind_rows(all_arrival_points, summ_point)
-          
-         
         }
+        i <-  arrival_row 
       }
       
     }
-    
+       
   }
-  
 }
 
-colnames(all_arrival_points)[39:41] <- c("rate", "type", "time_window")
+colnames(all_arrival_points)[42:44] <- c("rate", "type", "time_window")
+#colnames(all_arrival_points)[40:42] <- c("a", "b", "C")
 all_arrival_points$rate <- as.numeric(all_arrival_points$rate)
 all_arrival_points$time_window <- as.factor(all_arrival_points$time_window)
+all_arrival_points$time_window <- as.numeric(all_arrival_points$time_window)
+write.csv(all_arrival_points, "time_spent_in_patch_long.csv")
 
-ggplot(data = all_arrival_points, aes(x = time_window, y = rate)) + geom_jitter(alpha = 0.2) + geom_boxplot()+
-  facet_wrap(~ type)
-ggplot(data = all_arrival_points[which(all_arrival_points$pastStepDuration < 10),], aes(x = time_window, y = rate)) + geom_jitter(alpha = 0.2) + geom_boxplot()+
+#all_arrival_points <- read.csv("time_spent_in_patch.csv")
+
+head(all_arrival_points)
+
+table(all_arrival_points$time_window)
+as.numeric(quantile (all_arrival_points$time_window, probs = seq(0, 1, 0.1), na.rm= T)[10])
+all_arrival_points <- all_arrival_points[which(all_arrival_points$time_window <= 
+                                                 as.numeric(quantile (all_arrival_points$time_window, probs = seq(0, 1, 0.1), na.rm= T)[10])),]
+
+ggplot(data = all_arrival_points, aes(x = time_window, y = rate))  + geom_smooth(method = "lm")+
   facet_wrap(~ type)
 
+arrival_times <- seq(0, 100, 10)
+for (t in arrival_times) {
+print(ggplot(data = all_arrival_points[which(all_arrival_points$pastStepDuration > t & all_arrival_points$pastStepDuration < t+10 ),], aes(x = time_window, y = rate)) + 
+  geom_smooth(method = "glm", alpha=0.2, fill = "blue")+ ggtitle(paste(t,"-", t+10))+facet_wrap(~ type) )}
+
+
+quantile (all_arrival_points$indSpeedPast, probs = seq(0, 1, 0.1), na.rm= T)
+quantile (all_arrival_points$pastStepDuration, probs = seq(0, 1, 0.1), na.rm= T)
+
+ggplot(data = all_arrival_points[which(all_arrival_points$indSpeedPas < 0.053418050),], aes(x = time_window, y = rate)) + geom_hline(yintercept=0, linetype="dashed", color = "black", size= 1) + 
+        geom_smooth(method = "gam", alpha=0.2, color = "blue", fill = "blue")+ xlab("sec*10") +
+        geom_smooth(data = all_arrival_points[which(all_arrival_points$indSpeedPas > 0.221951660),], aes(x = time_window, y = rate), method = "gam", color = "red", fill= "red", alpha=0.2) +
+        geom_smooth(data = all_arrival_points[which(all_arrival_points$indSpeedPas > 0.083393879 & all_arrival_points$indSpeedPas < 0.126636001),], aes(x = time_window, y = rate), method = "gam", color = "darkgreen", fill= "darkgreen", alpha=0.2) +
+        facet_wrap(~ type) + scale_x_continuous(sec.axis = sec_axis(~ . , name = "Call_rate vs time spent in the patch (red = fast)", breaks = NULL, labels = NULL)) +
+        theme_minimal() 
+
+
+ggplot(data = all_arrival_points[which(all_arrival_points$indSpeedPas < 0.080830568),], aes(x = time_window, y = rate)) + geom_hline(yintercept=0, linetype="dashed", color = "black", size= 1) + 
+  geom_smooth(method = "gam", alpha=0.2, fill = "blue")+
+  geom_smooth(data = all_arrival_points[which(all_arrival_points$indSpeedPas > 0.123309581),], aes(x = time_window, y = rate), method = "gam", color = "red", fill= "red", alpha=0.2) +
+  facet_wrap(~ type) + scale_x_continuous(sec.axis = sec_axis(~ . , name = "Call_rate vs time spent in the patch (red = fast)", breaks = NULL, labels = NULL)) +
+  theme_minimal() 
+
+
+
+ggplot(data = all_arrival_points, aes(x = time_window, y = rate)) + geom_smooth(method = "gam")+
+  facet_wrap(~ type)
+
+
+
+all_arrival_points <- all_arrival_points[-which(is.na(all_arrival_points$pastStepDuration)),]
+all_arrival_points <- all_arrival_points[which(all_arrival_points$pastStepDuration < 200),]
 

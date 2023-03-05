@@ -245,7 +245,7 @@ gridExtra::grid.arrange(b1, p1)
 
 all_points <- read.csv("call_rates_5m_displacement.csv")
 all_points <- all_points[which(all_points$pastStepDuration < 300), ]
-#all_points <- all_points[which(all_points$futurStepDuration < 300), ]
+all_points <- all_points[which(all_points$futurStepDuration < 300), ]
 
 #calculate passing time between each point
 all_points$pass_speed <- apply(all_points[ , c("indSpeedPast", "indSpeedFutur")] , MARGIN = 1 , FUN = mean )
@@ -356,32 +356,75 @@ ggarrange(a1, e1, b1, f1, c1, g1, d1, h1,
           labels = c("A", "B", "C", "D", "E", "F", "G", "H"),
           ncol = 2, nrow = 4)
 
+#all_points$mean_ind_speed <- rowMeans(all_points[ , c("indSpeedPast", "indSpeedFutur")], na.rm = T)
+
+ggplot(data = all_points , aes(x = indSpeedFutur, y = sn_call_rate)) + 
+  geom_smooth(method = "loess", colour="black") + theme_bw() 
+
+ggplot(data = all_points , aes(x = indSpeedFutur, y = cc_call_rate)) + #xlim(0, 2) +
+  geom_smooth(method = "lm", colour="black") + theme_bw() 
 
 
 ggplot(data = all_points , aes(x = indSpeedPast, y = sn_call_rate)) + 
-  geom_smooth(method = "gam", colour="black") + theme_bw() 
-
-ggplot(data = all_points , aes(x = indSpeedFutur, y = sn_call_rate)) + 
-  geom_smooth(method = "gam", colour="black") + theme_bw() 
-
-ggplot(data = all_points , aes(x = indSpeedPast, y = sn_call_rate)) + 
   geom_smooth(method = "lm", colour="black") + theme_bw() 
 
-ggplot(data = all_points , aes(x = indSpeedFutur, y = sn_call_rate)) + 
-  geom_smooth(method = "lm", colour="black") + theme_bw() 
-
-ggplot(data = all_points , aes(x = indSpeedPast, y = cc_call_rate)) + 
-  geom_smooth(method = "gam", colour="black") + theme_bw() 
-
-ggplot(data = all_points , aes(x = indSpeedFutur, y = cc_call_rate)) + 
+ggplot(data = all_points , aes(x = indSpeedPast, y = cc_call_rate)) + #xlim(0, 2) +
   geom_smooth(method = "gam", colour="black") + theme_bw() 
 
 
-ggplot(data = all_points , aes(x = indSpeedPast, y = cc_call_rate)) + 
-  geom_smooth(method = "lm", colour="black") + theme_bw() 
 
-ggplot(data = all_points , aes(x = indSpeedFutur, y = cc_call_rate)) + 
-  geom_smooth(method = "lm", colour="black") + theme_bw() 
+# Bin size control + color palette
+ggplot(data = all_points , aes(x = pastStepDuration, y = futurStepDuration)) + 
+  stat_density_2d(
+  geom = "raster",
+  aes(fill = cc_call_rate),
+  contour = FALSE
+) + scale_fill_viridis_c()
+
+
+# library
+library(latticeExtra) 
+
+
+# showing data points on the same color scale 
+levelplot(cc_call_rate ~ pastStepDuration * futurStepDuration, all_points[sample(nrow(all_points), 10000), ],
+          region = TRUE) + 
+  layer_(panel.2dsmoother(..., n = 5, method = "lm"))
+
+
+
+
+all_points %>% group_by(pastStepDuration = cut(pastStepDuration, 10),
+                        futurStepDuration = cut(futurStepDuration, 10)) %>%
+  summarise(y=mean(cc_call_rate)) %>%
+  ggplot(aes(futurStepDuration, pastStepDuration, fill=y)) +
+  geom_tile() + 
+  theme_classic()
+
+
+library(ggplot2)
+
+# create example data
+set.seed(123)
+n <- 1000
+x <- rnorm(n)
+y <- rnorm(n)
+z <- rnorm(n)
+
+# combine the data into a data frame
+df <- data.frame(x, y, z)
+
+# create the heat map with kernel density of Z
+ggplot(df, aes(x = x, y = y, fill = stat(density))) +
+  geom_raster() +
+  scale_fill_gradientn(colors = c("white", "red"), na.value = "transparent") +
+  stat_density2d(geom = "polygon", aes(alpha = ..level..), fill = NA, color = "black") +
+  guides(alpha = FALSE) +
+  theme_bw()
+
+
+
+
 
 
 
@@ -416,16 +459,19 @@ ggplot(data = all_points[which(all_points$pastStepDuration < 300), ] , aes(x = p
   geom_point()
 
 
-
+all_points <- all_points[-which(is.na(all_points$cc_call_rate)) ,]
 
 s = interp(y = all_points[ , "pastStepDuration" ], 
-           x = all_points[ , "indSpeedFutur" ],
+           x = all_points[ , "futurStepDuration" ],
            z = all_points[ , "cc_call_rate" ], duplicate = "mean")
 
 p <- plot_ly(x = s$x, y = s$y, z = s$z) %>% add_surface()
 p
 
-
+# showing data points on the same color scale 
+levelplot(cc_call_rate ~ pastStepDuration * futurStepDuration, all_points[sample(nrow(all_points), 10000), ],
+          region = TRUE) + 
+  layer_(panel.2dsmoother(..., n = 5, method = "lm"))
 
 fig <- plot_ly(x = all_points[ , "futurStepDuration" ],
                y = all_points[ , "indSpeedFutur" ],
@@ -436,7 +482,7 @@ fig
 y <- all_points[which(all_points$pastStepDuration < 300 & 
                                       all_points$futurStepDuration < 300), "futurStepDuration" ]
 x <- all_points[which(all_points$pastStepDuration < 300 & 
-                                      all_points$futurStepDuration < 300), "pastStepDuration" ]
+                                      all_points$futurStepDuration < 300), "futurStepDuration" ]
 z <- all_points[which(all_points$pastStepDuration < 300 & 
                                       all_points$futurStepDuration < 300), "cc_call_rate" ]
 
