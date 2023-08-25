@@ -91,57 +91,64 @@ for (date in 1:length (dates)) {
       individual_select[which(!is.na(individual_select$futurStepDuration)) ,]
     
     
-    #if there is no call data skip to the next individual
+    #if there is no data skip to the next individual
     if (nrow(individual_select) == 0) {
       next
     }
     
     
      ### getting individual baseline call rates
-      #get the base call rate for the time window of interest
+      #get the base call rate -  calls per sec
       base_call_rate <- length(which(calls_select$isCall == 1)) / 
         as.numeric(difftime(labels_stop ,  labels_start, units="secs"))
       
-      #get the CC call rate for the time window of interest
+      #get the CC call rate  - cc calls per sec
       base_cc_rate <- length(which(calls_select$type_group == "cc" )) / 
         as.numeric(difftime(labels_stop ,  labels_start, units="secs"))
       
-      #get the SN call rate for the time window of interest
+      #get the SN call rate - sm calls per sec
       base_sn_rate <- length(which(calls_select$type_group == "sn" )) / 
         as.numeric(difftime(labels_stop ,  labels_start, units="secs"))
     
-    
+    #start row counter
     i <- 1
-    while (i < nrow(individual_select)) {
-      #get call rate for each position
-      t0 <-
-        individual_select$t[i] + individual_select$futurStepDuration[i]
+    while (i < nrow(individual_select)) { #make sure the loop does not go beyond the number of rows in data 
+      #set the start time for calculating call rates
+      #find the time point when the individual arrived to a new patch
+       t0 <-
+        individual_select$t[i] + individual_select$futurStepDuration[i] 
       if (t0 > individual_select$t[nrow(individual_select)]) {break}
       
+       #get the row number of the patch arrival time
       arrival_row <- which(individual_select$t == t0)
       if (length(arrival_row) == 0) {
         i <- which(individual_select$t > t0 )[1]
       }else{
+        #see the time spent in patch
         fut_step_dur <- individual_select$futurStepDuration[arrival_row]
         
-        if (fut_step_dur < 50) {
+        #avoid quick passes through the patch by setting min time in patch
+        if (fut_step_dur < 30) {
           i <- i + 1
         }else{
+          #calculate number of time windows in the current patch
+          nwind <- floor(fut_step_dur/tw)-1
           
-          nwind <- floor(fut_step_dur/10)-1
-          
+          #loop through the windows and get call rates
           for (win in 0:nwind) {
             
+            # number of calls in window
             calls_in_window <-
               calls_select[which(
                 as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t0+tw*win &
                   as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") < t0+tw*(win+1)
               ) , ]
+            
             calls_in_window <-
               calls_in_window[which(calls_in_window$isCall == 1) , ]
             
             
-            
+            # number of cc calls in window
             cc_calls_in_window <-
               calls_select[which(
                 as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t0+tw*win &
@@ -149,6 +156,7 @@ for (date in 1:length (dates)) {
                   calls_select$type_group == "cc"
               ) , ]
             
+            # number of SN calls in window
             sn_calls_in_window <-
               calls_select[which(
                 as.POSIXct(calls_select$t0GPS_UTC,  tz = "UTC") > t0+tw*win &
@@ -156,7 +164,7 @@ for (date in 1:length (dates)) {
                   calls_select$type_group == "sn"
               ) , ]
     
-            
+       #collect all data together      
      all_arrival_points <- bind_rows(all_arrival_points,               
           bind_cols(
             individual_select[arrival_row, ],
@@ -164,6 +172,7 @@ for (date in 1:length (dates)) {
             "call_rate",
             tw*win
           ))
+     
      all_arrival_points <- bind_rows(all_arrival_points,               
                                      bind_cols(
                                        individual_select[arrival_row, ],
@@ -183,6 +192,7 @@ for (date in 1:length (dates)) {
           }
           
         }
+        #set the row counter the current arrival row to keep the while condition going
         i <-  arrival_row 
       }
       
@@ -196,50 +206,70 @@ colnames(all_arrival_points)[42:44] <- c("rate", "type", "time_window")
 all_arrival_points$rate <- as.numeric(all_arrival_points$rate)
 all_arrival_points$time_window <- as.factor(all_arrival_points$time_window)
 all_arrival_points$time_window <- as.numeric(all_arrival_points$time_window)
-write.csv(all_arrival_points, "time_spent_in_patch_long.csv")
+#write.csv(all_arrival_points, "time_spent_in_patch_30sec_pass.csv")
 
-#all_arrival_points <- read.csv("time_spent_in_patch.csv")
-
+all_arrival_points <- read.csv("time_spent_in_patch_30sec_pass.csv")
+all_arrival_points <- all_arrival_points[which(all_arrival_points$type !="call_rate"),]   
 head(all_arrival_points)
 
-table(all_arrival_points$time_window)
-as.numeric(quantile (all_arrival_points$time_window, probs = seq(0, 1, 0.1), na.rm= T)[10])
+#table(all_arrival_points$time_window)
+#as.numeric(quantile (all_arrival_points$time_window, probs = seq(0, 1, 0.1), na.rm= T)[10])
 all_arrival_points <- all_arrival_points[which(all_arrival_points$time_window <= 
                                                  as.numeric(quantile (all_arrival_points$time_window, probs = seq(0, 1, 0.1), na.rm= T)[10])),]
 
 ggplot(data = all_arrival_points, aes(x = time_window, y = rate))  + geom_smooth(method = "lm")+
   facet_wrap(~ type)
 
-arrival_times <- seq(0, 100, 10)
-for (t in arrival_times) {
-print(ggplot(data = all_arrival_points[which(all_arrival_points$pastStepDuration > t & all_arrival_points$pastStepDuration < t+10 ),], aes(x = time_window, y = rate)) + 
-  geom_smooth(method = "glm", alpha=0.2, fill = "blue")+ ggtitle(paste(t,"-", t+10))+facet_wrap(~ type) )}
+#arrival_times <- seq(0, 100, 10)
+#for (t in arrival_times) {
+#print(ggplot(data = all_arrival_points[which(all_arrival_points$pastStepDuration > t & all_arrival_points$pastStepDuration < t+10 ),], aes(x = time_window, y = rate)) + 
+#  geom_smooth(method = "glm", alpha=0.2, fill = "blue")+ ggtitle(paste(t,"-", t+10))+facet_wrap(~ type) )}
 
 
 quantile (all_arrival_points$indSpeedPast, probs = seq(0, 1, 0.1), na.rm= T)
-quantile (all_arrival_points$pastStepDuration, probs = seq(0, 1, 0.1), na.rm= T)
 
-ggplot(data = all_arrival_points[which(all_arrival_points$indSpeedPas < 0.053418050),], aes(x = time_window, y = rate)) + geom_hline(yintercept=0, linetype="dashed", color = "black", size= 1) + 
-        geom_smooth(method = "gam", alpha=0.2, color = "blue", fill = "blue")+ xlab("sec*10") +
-        geom_smooth(data = all_arrival_points[which(all_arrival_points$indSpeedPas > 0.221951660),], aes(x = time_window, y = rate), method = "gam", color = "red", fill= "red", alpha=0.2) +
-        geom_smooth(data = all_arrival_points[which(all_arrival_points$indSpeedPas > 0.083393879 & all_arrival_points$indSpeedPas < 0.126636001),], aes(x = time_window, y = rate), method = "gam", color = "darkgreen", fill= "darkgreen", alpha=0.2) +
+slow <- as.numeric(quantile (all_arrival_points$indSpeedPast, probs = seq(0, 1, 0.1), na.rm= T)[3])
+fast <- as.numeric(quantile (all_arrival_points$indSpeedPast, probs = seq(0, 1, 0.1), na.rm= T)[9])
+med_low <-  as.numeric(quantile (all_arrival_points$indSpeedPast, probs = seq(0, 1, 0.1), na.rm= T)[5])
+med_high <- as.numeric(quantile (all_arrival_points$indSpeedPast, probs = seq(0, 1, 0.1), na.rm= T)[7])
+#quantile (all_arrival_points$pastStepDuration, probs = seq(0, 1, 0.1), na.rm= T)
+
+ggplot(data = all_arrival_points[which(all_arrival_points$indSpeedPas < slow),], aes(x = time_window, y = rate)) + geom_hline(yintercept=0, linetype="dashed", color = "black", size= 1) + 
+        geom_smooth(method = "gam", alpha=0.2, color = "darkgreen", fill = "darkgreen")+ xlab("sec*10") +
+        geom_smooth(data = all_arrival_points[which(all_arrival_points$indSpeedPas > fast),], aes(x = time_window, y = rate), method = "gam", color = "blue", fill= "blue", alpha=0.2) +
+        geom_smooth(data = all_arrival_points[which(all_arrival_points$indSpeedPas > med_low & all_arrival_points$indSpeedPas < med_high),], aes(x = time_window, y = rate), method = "gam", color = "darkorange", fill= "darkorange", alpha=0.2) +
         facet_wrap(~ type) + scale_x_continuous(sec.axis = sec_axis(~ . , name = "Call_rate vs time spent in the patch (red = fast)", breaks = NULL, labels = NULL)) +
         theme_minimal() 
 
 
-ggplot(data = all_arrival_points[which(all_arrival_points$indSpeedPas < 0.080830568),], aes(x = time_window, y = rate)) + geom_hline(yintercept=0, linetype="dashed", color = "black", size= 1) + 
-  geom_smooth(method = "gam", alpha=0.2, fill = "blue")+
-  geom_smooth(data = all_arrival_points[which(all_arrival_points$indSpeedPas > 0.123309581),], aes(x = time_window, y = rate), method = "gam", color = "red", fill= "red", alpha=0.2) +
-  facet_wrap(~ type) + scale_x_continuous(sec.axis = sec_axis(~ . , name = "Call_rate vs time spent in the patch (red = fast)", breaks = NULL, labels = NULL)) +
-  theme_minimal() 
+
+all_arrival_points[which(all_arrival_points$indSpeedPas <= slow), "speed_of_arrival"] <- "slow"
+all_arrival_points[which(all_arrival_points$indSpeedPas >= fast), "speed_of_arrival"] <- "fast"
+all_arrival_points[which(all_arrival_points$indSpeedPas >= med_low & all_arrival_points$indSpeedPas <= med_high), "speed_of_arrival"] <- "medium"
+
+plot(all_arrival_points[which(all_arrival_points$speed_of_arrival == "medium") , "rate"])
+
+table(all_arrival_points_1$speed_of_arrival)
+
+library(glmmTMB)
+library(jtools)
+library(interactions)
+
+sn_model <- glmmTMB(data = all_arrival_points[which(all_arrival_points$type == "sn_call_rate"), ],
+              rate ~ time_window + speed_of_arrival + time_window*speed_of_arrival+(1|indUniqID))
+summary(sn_model)
+
+diagnose(sn_model)
+check_model(sn_model)
 
 
 
-ggplot(data = all_arrival_points, aes(x = time_window, y = rate)) + geom_smooth(method = "gam")+
-  facet_wrap(~ type)
+interact_plot(sn_model, pred = time_window, modx = speed_of_arrival, interval = TRUE,
+              int.type = "confidence", int.width = .8, main = "SN_call rate")
 
-
-
-all_arrival_points <- all_arrival_points[-which(is.na(all_arrival_points$pastStepDuration)),]
-all_arrival_points <- all_arrival_points[which(all_arrival_points$pastStepDuration < 200),]
+cc_model <- glmmTMB(data = all_arrival_points[which(all_arrival_points$type == "cc_call_rate"), ],
+                 rate ~ time_window + speed_of_arrival + time_window*speed_of_arrival+(1|indUniqID))
+summary(cc_model)
+interact_plot(cc_model, pred = time_window, modx = speed_of_arrival, interval = TRUE,
+              int.type = "confidence", int.width = .8, main = "CC_call rate")
 

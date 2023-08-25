@@ -14,7 +14,7 @@ library(akima)
 setwd("C:/Users/vdemartsev/My Cloud/Git_projects/CC_dynamics")
 
 #set the displacement distance 
-distance <- 5
+distance <- 10
 
 #set time window 
 tw <- 5
@@ -356,10 +356,10 @@ ggarrange(a1, e1, b1, f1, c1, g1, d1, h1,
           labels = c("A", "B", "C", "D", "E", "F", "G", "H"),
           ncol = 2, nrow = 4)
 
-#all_points$mean_ind_speed <- rowMeans(all_points[ , c("indSpeedPast", "indSpeedFutur")], na.rm = T)
+all_points$mean_ind_speed <- rowMeans(all_points[ , c("indSpeedPast", "indSpeedFutur")], na.rm = T)
 
 ggplot(data = all_points , aes(x = indSpeedFutur, y = sn_call_rate)) + 
-  geom_smooth(method = "loess", colour="black") + theme_bw() 
+  geom_smooth(method = "gam", colour="black") + theme_bw() 
 
 ggplot(data = all_points , aes(x = indSpeedFutur, y = cc_call_rate)) + #xlim(0, 2) +
   geom_smooth(method = "lm", colour="black") + theme_bw() 
@@ -371,6 +371,45 @@ ggplot(data = all_points , aes(x = indSpeedPast, y = sn_call_rate)) +
 ggplot(data = all_points , aes(x = indSpeedPast, y = cc_call_rate)) + #xlim(0, 2) +
   geom_smooth(method = "gam", colour="black") + theme_bw() 
 
+
+#plot combining CC and Sn call rates as a function of future speed
+ggplot(data = all_points , aes(x = indSpeedFutur, y = sn_call_rate)) + 
+  geom_smooth(method = "gam", colour="#C4961A") +  
+  geom_smooth(aes(x = indSpeedFutur, y = cc_call_rate*8), method = "gam", colour="#00AFBB") +
+  # Custom the Y scales:
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "SN Call Rate",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis( trans=~./8, name="CC Call Rate")
+  ) +
+  xlim(0, 3) + geom_hline(yintercept=c(1, 8), linetype="dotted",size = 2,  color = c("#C4961A", "#00AFBB")) + 
+  xlab("Movement speed (m/sec)") + theme_bw() + theme(text = element_text(size = 20))   
+
+
+
+#plot combining CC and Sn call rates as a function of mean speed
+ggplot(data = all_points , aes(x = mean_ind_speed, y = sn_call_rate)) + 
+  geom_smooth(method = "gam", colour="#C4961A") +  
+  geom_smooth(aes(x = mean_ind_speed, y = cc_call_rate*8), method = "gam", colour="#00AFBB") +
+  # Custom the Y scales:
+  scale_y_continuous(
+    
+    # Features of the first axis
+    name = "SN Call Rate",
+    
+    # Add a second axis and specify its features
+    sec.axis = sec_axis( trans=~./8, name="CC Call Rate")
+  ) +
+  xlim(0, 3) + geom_segment(aes(x=0,xend=2,y=1,yend=1), linetype="dotted",size = 2,  color = "#C4961A") + 
+               geom_segment(aes(x=1,xend=3,y=8,yend=8), linetype="dotted",size = 2,  color = "#00AFBB") +
+               #geom_line(data=data.frame(x=0:2,y=1), linetype="dotted",size = 2,  color = "#C4961A")+
+               #geom_line(data=data.frame(x=0:2,y=8), linetype="dotted",size = 2,  color = "#00AFBB")+
+  xlab("Movement speed (m/sec)") + theme_bw() + theme(text = element_text(size = 20))   
+
+ 
 
 
 # Bin size control + color palette

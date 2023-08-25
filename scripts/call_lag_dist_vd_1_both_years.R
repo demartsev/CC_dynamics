@@ -60,7 +60,7 @@ seq_start = 10 #silence time before initiating a sequence
 seq.reply = 5 #time frame for a response call
 
 ignore_skip_sections <-
-  "no" #should skipon sections be omitted across all individuals
+  "yes" #should skipon sections be omitted across all individuals
 
 pair_sample_size <- 200 #minimal sample size for call pair analyses
 
@@ -359,7 +359,7 @@ if (ignore_skip_sections == "yes") {
   )
 }
 #save(both_years, file = paste("V:/meerkat/working/processed/acoustic/resolve_conflicts/all_calls_sync_resolved_with_oor_", Sys.Date(), ".RData", sep = ""))
-
+#both_years <- read.csv("all_calls_sync_resolved_2023-03-23.csv")
 
 
 #get the pairs for all calls
@@ -370,6 +370,8 @@ all_calls_seq$pair <-
 for (i in 2:nrow(all_calls_seq)) {
   all_calls_seq[i, "ini"] <- all_calls_seq[i - 1, "type_group"]
 }
+length(unique(all_calls_seq$date))
+table(all_calls_seq$ind, all_calls_seq$date)
 
 
 #remove first call of each day
@@ -394,17 +396,21 @@ all_pairs <-
 quantile(all_pairs$lag,
          na.rm = T,
          probs = c(0.25 , 0.5, 0.75, 0.90))    # get response lag IQR and 90th percentiles
+IQR(all_pairs$lag, na.rm = T)
 
-
-all_pairs <-
-  all_pairs [which(all_pairs$c_dist < dist_thresh),] #filter by distance here
+#all_pairs <-
+#  all_pairs [which(all_pairs$c_dist < dist_thresh),] #filter by distance here
 
 
 nrow(all_pairs) #get sample sizes
 table(all_pairs$type_group)
-
+quantile(all_pairs$lag,
+         na.rm = T,
+         probs =  0.90) 
 all_pairs <-
-  all_pairs[which(all_pairs$lag <= seq.reply),] #remove slow replies
+  all_pairs[which(all_pairs$lag <= quantile(all_pairs$lag,
+                                            na.rm = T,
+                                            probs =  0.90) ),] #remove slow replies
 
 
 all_pairs <-
@@ -439,7 +445,7 @@ inter_type <-
 call_pairs_list <-
   list(all_NF_pairs, all_focal_pairs, all_foc_NF_pairs , inter_type)
 names(call_pairs_list) <-
-  c("caller exchange", "self reply", "all replies", "inter_type")
+  c("Non self reply", "Self reply", "All transitions", "Inter call type")
 
 #make heat maps with real probability values and color code corresponding to null subtraction
 p <- list()
@@ -514,7 +520,7 @@ for (x in 1:length(call_pairs_list))
       midpoint = 0,
       limit = c(-1, 1),
       space = "Lab",
-      name = "Null substracion"
+      name = "Relative probability"
     ) +
     theme_minimal() +
     theme(axis.text.x = element_text(
@@ -532,15 +538,12 @@ grid.arrange(
   p[[1]],
   p[[2]],
   p[[3]],
-  p[[4]] ,
+  p[[4]],
   nrow = 2,
-  top = paste(
-    "Delta call_type transition matrix (",
-    dist_thresh,
-    "_m cutoff)",
-    sep = ""
+  top =  
+    "Meerkat call transitions"
   )
-)
+
 
 #_________________________________________________________________________________________________________________________
 
@@ -562,10 +565,16 @@ tmp_pairs <-
                       tmp_pairs$caller_match == T)) ,] #remove quick self replies
 #tmp_pairs <- tmp_pairs[-(which(tmp_pairs$lag < 0.1)) , ] #remove all quick replies
 
+#tmp_pairs <-
+#  tmp_pairs[which(tmp_pairs$lag <= quantile(all_pairs$lag,
+#                                            na.rm = T,
+#                                            probs =  0.90))  ,] #remove slow replies
+
 tmp_pairs <-
-  tmp_pairs[which(tmp_pairs$lag <= seq.reply),] #remove slow replies
-tmp_pairs <-
-  tmp_pairs [which(tmp_pairs$c_dist < dist_thresh),] #filter by distance here
+  tmp_pairs[which(tmp_pairs$lag <= 2.58)  ,]
+
+#tmp_pairs <-
+#  tmp_pairs [which(tmp_pairs$c_dist < dist_thresh),] #filter by distance here
 #tmp_pairs$rand_lag <- sample(tmp_pairs$lag, nrow(tmp_pairs), replace = F)
 
 
@@ -573,16 +582,26 @@ tmp_pairs <-
 sample_sizes <- data.frame(table(tmp_pairs$pair))
 
 #get call pairs of reasonable sample size
+#call_pairs <-
+# sample_sizes[which(sample_sizes$Freq > pair_sample_size), 1]
+
+
 call_pairs <-
-  sample_sizes[which(sample_sizes$Freq > pair_sample_size), 1]
+  c("agg agg", "al al", "cc cc", "sn sn", "soc soc")
 tmp_pairs <-
   tmp_pairs[which(tmp_pairs$pair %in% call_pairs),] #select  call type pairs of interest
 
 
 # general proportion plot self vs non self reply
 p1 <- ggplot(tmp_pairs, aes(pair , fill = caller_match)) +
-  geom_bar(position = "fill", width = 0.7) + xlab("call_pair") + ylab("Proportion") +
-  ggtitle("Self reply / caller exchange proportion") + labs(fill = "Self reply")
+  geom_bar(position = "fill", width = 0.7) + xlab("call type pair") + ylab("Proportion") +
+  geom_text(
+    aes(label=signif(..count.. / tapply(..count.., ..x.., sum)[as.character(..x..)], digits=3)),
+    stat="count",
+    position=position_fill(vjust=0.5))+
+  labs(fill = "Self reply") + scale_fill_manual(labels=c('Non-self reply', 'Self reply'), values=c("grey70", "grey40"), name="") +
+  theme_minimal(base_size = 20) + theme( legend.position='top')  + scale_y_continuous(breaks=c(0,0.5, 1))
+ 
 
 p1
 #Plot all together
@@ -590,17 +609,15 @@ p1
 
 
 ### box plots for self vs non self response times with tests
-give.n <- function(x) {
-  return(c(y = median(x) * 1.05, label = length(x)))
   # experiment with the multiplier to find the perfect position
+give.n <- function(x){
+  return(c(y = mean(fivenum(x)[3:4]), label = length(x)))
 }
-ggplot(data = tmp_pairs, aes(x = pair, y = lag, fill = caller_match)) + geom_boxplot(notch = T) +
-  theme_minimal() + scale_fill_grey(
-    start = 0.4,
-    end = 0.6,
-    na.value = "red",
+
+ggplot(data = tmp_pairs[which(tmp_pairs$pair %in% c("cc cc", "sn sn")), ]  , aes(x = pair, y = lag, fill = caller_match)) + geom_boxplot(notch = F) +
+  theme_minimal() + scale_fill_manual(labels=c('Non-self reply', 'Self reply'), values=c("grey70", "grey40"), name="",
     aesthetics = "fill"
-  ) +
+  ) + ylab("Inter-call interval (sec)") + xlab ("call type pair") + 
   stat_summary(
     fun.data = give.n,
     geom = "text",
@@ -608,10 +625,34 @@ ggplot(data = tmp_pairs, aes(x = pair, y = lag, fill = caller_match)) + geom_box
     position = position_dodge(width = 0.75)
   ) +
   stat_compare_means(aes(
-    group = caller_match,
-    label = paste0(..method.., "\n", "p =", ..p.format..)
-  ))
+    group = comp_levels,
+    label =  ..p.signif..
+  )) + theme_minimal(base_size = 20) + theme( legend.position='top')
+library(tidyr)
+ detach(ggpubr)
+library(coin)
+stat.test <- tmp_pairs[which(tmp_pairs$pair %in% c("cc cc", "sn sn")), ] 
 
+ stat.test$pair <- as.factor(stat.test$pair)
+ pairs <-  wilcox.test( stat.test$lag ~  stat.test$pair , exact = T )
+ cc <-  wilcox.test( stat.test[which(stat.test$pair == "cc cc"), "lag"] ~  stat.test[which(stat.test$pair == "cc cc"), "caller_match"])  
+ sn <-  wilcox.test( stat.test[which(stat.test$pair == "sn sn"), "lag"] ~  stat.test[which(stat.test$pair == "sn sn"), "caller_match"])  
+ 
+stat.test
+
+
+test <- stat.test %>%
+  group_by(pair) %>%
+  wilcox_test(data =., lag ~ caller_match) %>%
+  adjust_pvalue(method = "bonferroni") %>%
+  add_significance("p.adj")
+
+# Box plot
+ggboxplot(stat.test, x = "caller_match", y = "lag")+
+  stat_pvalue_manual(
+    test, label = "p.adj", 
+    y.position = c(3, 2, 1)
+  )
 
 #####################################################################
 
@@ -622,7 +663,7 @@ test <-
 test <-
   test[which(test$c_dist < dist_thresh),] #limit reply distance
 
-test <- test[which(test$lag < seq.reply),] #limit time lag
+test <- test[which(test$lag < 2.58),] #limit time lag
 
 
 
@@ -712,7 +753,7 @@ for (one_pair in call_pairs) {
   hist(
     tmp_pairs[which(tmp_pairs$pair == one_pair) , "c_dist"],
     col = adjustcolor("#000000", alpha.f = 0.4),
-    main = paste(one_pair, "response distance", sep = ""),
+    main = paste(one_pair, " response distance", sep = ""),
     xlab = "meters"
   )
 }
